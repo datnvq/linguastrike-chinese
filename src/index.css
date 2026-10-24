@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    user-select: none;
+    background-color: #121110;
+    color: #ede7dc;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  #root {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  code, kbd, samp, pre {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+}
+
+.font-display {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+
+.font-hanzi {
+  font-family: 'Noto Serif SC', 'PingFang SC', 'Microsoft YaHei', serif;
+}
+
+/* Tactile 3D Buttons for Arcade Feel */
+.tactile-btn {
+  transition: all 0.08s ease-in-out;
+  box-shadow: 0 3px 0 0 var(--shadow-color, #78350f);
+}
+.tactile-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 0 var(--shadow-color, #78350f);
+}
+.tactile-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 0 var(--shadow-color, #78350f);
+}
+
+/* Custom Clean Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(120, 113, 108, 0.4);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 162, 158, 0.6);
+}
+
+/* Screen Shake Animation on Damage */
+@keyframes screen-shake {
+  0% { transform: translate(1px, 1px); }
+  20% { transform: translate(-2px, 0px); }
+  40% { transform: translate(2px, -1px); }
+  60% { transform: translate(-1px, 2px); }
+  80% { transform: translate(1px, -1px); }
+  100% { transform: translate(0px, 0px); }
+}
+
+.shake-active {
+  animation: screen-shake 0.3s ease-out both;
+}

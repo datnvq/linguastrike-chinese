@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bản Demo Typography & Giao Diện: Arcade Editorial & Warm Asian Ink</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Các bộ font cao cấp được dùng: Plus Jakarta Sans (UI hiện đại sắc sảo), Space Grotesk (tiêu đề cá tính), Noto Serif SC (chữ Hán thanh nhã), JetBrains Mono (kỹ thuật/số liệu) -->
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            paper: {
+              950: '#11100e',
+              900: '#181614',
+              850: '#221f1b',
+              800: '#2f2b25',
+              700: '#443e35',
+              300: '#dcd5c8',
+              100: '#f8f4ec',
+            },
+            amberInk: {
+              300: '#fcd34d',
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+            },
+            vermilion: {
+              500: '#e11d48',
+              600: '#be123c',
+            },
+            jade: {
+              400: '#34d399',
+              500: '#10b981',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'],
+            display: ['"Space Grotesk"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+            hanzi: ['"Noto Serif SC"', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Tactile 3D Button Effects */
+    .tactile-btn {
+      transition: all 0.08s ease-in-out;
+      box-shadow: 0 4px 0 0 var(--shadow-color, #78350f);
+    }
+    .tactile-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 5px 0 0 var(--shadow-color, #78350f);
+    }
+    .tactile-btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 0 var(--shadow-color, #78350f);
+    }
+
+    .tactile-card {
+      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .tactile-card:hover {
+      border-color: #f59e0b;
+      transform: translateY(-2px);
+    }
+
+    /* Custom Switch */
+    .toggle-active {
+      background-color: #f59e0b;
+    }
+    .toggle-active .knob {
+      transform: translateX(18px);
+      background-color: #11100e;
+    }
+  </style>
+</head>
+<body class="bg-[#11100e] text-[#ece6da] min-h-screen p-4 sm:p-8 flex flex-col items-center justify-center font-sans selection:bg-amberInk-500 selection:text-black">
+
+  <!-- Header Banner & So sánh Font -->
+  <header class="w-full max-w-2xl mb-4 text-center">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amberInk-500/10 border border-amberInk-500/30 text-amberInk-400 text-xs font-mono uppercase tracking-wider mb-2.5">
+      ✦ Typography Nâng Cấp: Plus Jakarta Sans × Space Grotesk × Noto Serif SC
+    </div>
+    
+    <div class="flex items-center justify-center gap-3">
+      <h1 class="text-2xl sm:text-3xl font-display font-extrabold tracking-tight text-[#fbf8f3]">
+        LINGUASTRIKE
+      </h1>
+      <span class="font-hanzi text-amberInk-400 text-xl font-black border border-amberInk-500/40 px-2.5 py-0.5 rounded-lg bg-amberInk-500/10 shadow-sm">
+        擊字
+      </span>
+    </div>
+
+    <p class="text-xs sm:text-sm text-stone-400 mt-1.5 max-w-md mx-auto leading-relaxed">
+      Sử dụng typography có tính cách riêng, kết hợp chữ Hán cổ điển sắc nét và phím dập nổi xúc giác.
+    </p>
+  </header>
+
+  <!-- Khung Game Preview Box -->
+  <main class="w-full max-w-2xl bg-paper-900 border-2 border-paper-800 rounded-2xl p-5 sm:p-7 shadow-2xl relative overflow-hidden">
+    
+    <!-- Top Action Bar -->
+    <div class="flex items-center justify-between pb-4 mb-4 border-b border-paper-800/80">
+      <div class="flex items-center gap-2.5">
+        <span class="w-2.5 h-2.5 rounded-full bg-amberInk-500 animate-pulse"></span>
+        <span class="text-xs font-mono font-semibold tracking-wider text-stone-300">HSK 3.0 EDITION</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button class="px-2.5 py-1.5 rounded-lg bg-paper-850 border border-paper-700/70 hover:border-amberInk-500/60 text-stone-300 text-xs font-medium flex items-center gap-1.5 transition-all">
+          <span>🔊</span>
+          <span class="hidden sm:inline">Thử âm</span>
+        </button>
+        <button class="px-2.5 py-1.5 rounded-lg bg-paper-850 border border-paper-700/70 hover:border-amberInk-500/60 text-stone-300 text-xs font-medium flex items-center gap-1.5 transition-all">
+          <span>📚</span>
+          <span>Kho từ <span class="font-mono text-amberInk-400 font-bold">(5,181)</span></span>
+        </button>
+        <button class="px-2.5 py-1.5 rounded-lg bg-paper-850 border border-paper-700/70 hover:border-amberInk-500/60 text-stone-300 text-xs font-medium flex items-center gap-1.5 transition-all">
+          <span>⚙️</span>
+          <span>Cài đặt</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Record / Highscore Bar phong cách Máy gõ chữ -->
+    <div class="mb-5 px-4 py-2.5 rounded-xl bg-paper-950 border border-paper-800 flex items-center justify-between text-xs">
+      <div class="flex items-center gap-2 text-stone-400">
+        <span class="text-amberInk-400 text-sm">🏆</span>
+        <span class="font-medium text-stone-300">Kỷ lục điểm cao của bạn:</span>
+      </div>
+      <div class="font-mono font-bold text-sm tracking-widest text-amberInk-400">
+        24,850 <span class="text-[10px] text-stone-500 font-normal">PTS</span>
+      </div>
+    </div>
+
+    <!-- 1. CHỌN CHẾ ĐỘ (Tactile Cards) -->
+    <div class="mb-5">
+      <div class="flex items-center justify-between mb-2.5">
+        <label class="text-xs font-display font-bold uppercase tracking-wider text-stone-400 flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-sm bg-amberInk-500"></span>
+          1. Chế độ luyện tập
+        </label>
+        <span class="text-[11px] font-mono text-stone-500">Pinyin Mode</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <!-- Option 1: Selected -->
+        <div class="tactile-card p-3.5 rounded-xl border-2 border-amberInk-500 bg-paper-850 cursor-pointer relative shadow-sm">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-amberInk-500 text-paper-950 flex items-center justify-center font-hanzi font-black text-base shadow-inner">
+                字
+              </div>
+              <div>
+                <h4 class="text-xs sm:text-sm font-bold text-white tracking-wide">Nhìn Hán Tự ➔ Gõ Pinyin</h4>
+                <p class="text-[11px] text-stone-400 leading-tight mt-0.5">Luyện nhớ phiên âm và thanh điệu</p>
+              </div>
+            </div>
+            <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amberInk-500 text-paper-950 tracking-wider">ACTIVE</span>
+          </div>
+        </div>
+
+        <!-- Option 2 -->
+        <div class="tactile-card p-3.5 rounded-xl border border-paper-800 bg-paper-950/60 hover:bg-paper-850 cursor-pointer">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-paper-800 border border-paper-700 text-stone-300 flex items-center justify-center text-xs font-mono">
+                🎧
+              </div>
+              <div>
+                <h4 class="text-xs sm:text-sm font-semibold text-stone-300">Nghe Âm ➔ Gõ Pinyin</h4>
+                <p class="text-[11px] text-stone-500 leading-tight mt-0.5">Che mặt chữ, luyện phản xạ nghe</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Option 3 -->
+        <div class="tactile-card p-3.5 rounded-xl border border-paper-800 bg-paper-950/60 hover:bg-paper-850 cursor-pointer">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-paper-800 border border-paper-700 text-stone-300 flex items-center justify-center text-xs">
+                🇻🇳
+              </div>
+              <div>
+                <h4 class="text-xs sm:text-sm font-semibold text-stone-300">Nghĩa Việt ➔ Gõ Pinyin</h4>
+                <p class="text-[11px] text-stone-500 leading-tight mt-0.5">Dịch ngược nghĩa sang từ vựng</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Option 4 -->
+        <div class="tactile-card p-3.5 rounded-xl border border-paper-800 bg-paper-950/60 hover:bg-paper-850 cursor-pointer">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-paper-800 border border-paper-700 text-stone-300 flex items-center justify-center text-xs font-mono font-bold">
+                P/Y
+              </div>
+              <div>
+                <h4 class="text-xs sm:text-sm font-semibold text-stone-300">Nhìn Pinyin ➔ Gõ Pinyin</h4>
+                <p class="text-[11px] text-stone-500 leading-tight mt-0.5">Thuần luyện tốc độ gõ bàn phím</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. CẤP ĐỘ HSK (Dạng Keycaps cơ học) -->
+    <div class="mb-5">
+      <div class="flex items-center justify-between mb-2.5">
+        <label class="text-xs font-display font-bold uppercase tracking-wider text-stone-400 flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-sm bg-amberInk-500"></span>
+          2. Cấp độ HSK 3.0
+        </label>
+        <span class="text-[11px] font-mono text-stone-500">1 – 6</span>
+      </div>
+
+      <div class="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+        <button class="py-2.5 px-1 rounded-xl text-center border-2 border-amberInk-500 bg-amberInk-500/10 text-amberInk-400 font-mono font-bold text-xs shadow-sm">
+          <div>HSK 1</div>
+          <div class="text-[9px] text-stone-400 font-normal">500 từ</div>
+        </button>
+        <button class="py-2.5 px-1 rounded-xl text-center border border-paper-800 bg-paper-950/70 hover:border-paper-700 text-stone-400 hover:text-stone-200 font-mono text-xs transition-colors">
+          <div>HSK 2</div>
+          <div class="text-[9px] text-stone-500">772 từ</div>
+        </button>
+        <button class="py-2.5 px-1 rounded-xl text-center border border-paper-800 bg-paper-950/70 hover:border-paper-700 text-stone-400 hover:text-stone-200 font-mono text-xs transition-colors">
+          <div>HSK 3</div>
+          <div class="text-[9px] text-stone-500">973 từ</div>
+        </button>
+        <button class="py-2.5 px-1 rounded-xl text-center border border-paper-800 bg-paper-950/70 hover:border-paper-700 text-stone-400 hover:text-stone-200 font-mono text-xs transition-colors">
+          <div>HSK 4</div>
+          <div class="text-[9px] text-stone-500">1000 từ</div>
+        </button>
+        <button class="py-2.5 px-1 rounded-xl text-center border border-paper-800 bg-paper-950/70 hover:border-paper-700 text-stone-400 hover:text-stone-200 font-mono text-xs transition-colors">
+          <div>HSK 5</div>
+          <div class="text-[9px] text-stone-500">1071 từ</div>
+        </button>
+        <button class="py-2.5 px-1 rounded-xl text-center border border-paper-800 bg-paper-950/70 hover:border-paper-700 text-stone-400 hover:text-stone-200 font-mono text-xs transition-colors">
+          <div>HSK 6</div>
+          <div class="text-[9px] text-stone-500">1140 từ</div>
+        </button>
+        <button class="py-2.5 px-1 rounded-xl text-center border border-paper-800 bg-paper-950/70 hover:border-paper-700 text-stone-400 hover:text-stone-200 font-mono text-xs transition-colors">
+          <div>Tất cả</div>
+          <div class="text-[9px] text-stone-500">Toàn bộ</div>
+        </button>
+        <button class="py-2.5 px-1 rounded-xl text-center border border-paper-800 bg-paper-950/70 hover:border-paper-700 text-stone-400 hover:text-stone-200 font-mono text-xs transition-colors">
+          <div>Đời sống</div>
+          <div class="text-[9px] text-stone-500">Thực tế</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. TOGGLES: Dạng Clean Switch -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-6">
+      <div class="p-3.5 rounded-xl border border-paper-800 bg-paper-950/60 flex items-center justify-between">
+        <div>
+          <div class="text-xs font-semibold text-stone-200">Gợi ý nghĩa tiếng Việt</div>
+          <div class="text-[11px] text-stone-500">Hiện nghĩa phụ bên dưới từ khi rơi</div>
+        </div>
+        <div class="w-10 h-5 bg-paper-800 rounded-full relative p-0.5 cursor-pointer">
+          <div class="w-4 h-4 bg-stone-500 rounded-full"></div>
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-xl border border-amberInk-500/40 bg-amberInk-500/5 flex items-center justify-between">
+        <div>
+          <div class="text-xs font-semibold text-stone-200">Thử thách Boss ghép câu</div>
+          <div class="text-[11px] text-amberInk-400/90 font-medium">Xuất hiện sau mỗi 6 từ</div>
+        </div>
+        <div class="w-10 h-5 bg-amberInk-500 rounded-full relative p-0.5 cursor-pointer flex justify-end">
+          <div class="w-4 h-4 bg-paper-950 rounded-full shadow"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. NÚT START TACTILE CHUNKY -->
+    <div class="flex gap-3">
+      <button style="--shadow-color: #26221d;" class="tactile-btn px-4 py-3.5 rounded-xl bg-paper-800 border border-paper-700 text-stone-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer">
+        <span>📄</span>
+        <span>Nạp từ vựng</span>
+      </button>
+
+      <button style="--shadow-color: #92400e;" class="tactile-btn flex-1 py-3.5 px-6 rounded-xl bg-amberInk-500 hover:bg-amberInk-400 border border-amberInk-400 text-paper-950 font-black text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider font-display">
+        <span>▶ Bắt đầu gõ phím</span>
+        <span class="text-xs font-mono font-semibold opacity-75 hidden sm:inline">[ENTER]</span>
+      </button>
+    </div>
+  </main>
+
+  <!-- So sánh Typography cụ thể -->
+  <section class="w-full max-w-2xl mt-6 p-4 rounded-xl bg-paper-950/70 border border-paper-800 text-xs text-stone-300">
+    <div class="font-bold text-amberInk-400 mb-2 flex items-center gap-1.5 font-display text-sm">
+      <span>✨</span> Bộ Font Mới Giải Quyết Vấn Đề Gì?
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] text-stone-400 leading-relaxed">
+      <div class="p-2.5 rounded-lg bg-paper-900 border border-paper-800">
+        <div class="font-bold text-stone-200 font-display mb-1">Plus Jakarta Sans</div>
+        <div>Font UI hình học hiện đại, các nét bo thanh thoát, chữ tiếng Việt hiển thị tròn trịa không bị lỗi dấu.</div>
+      </div>
+      <div class="p-2.5 rounded-lg bg-paper-900 border border-paper-800">
+        <div class="font-bold text-stone-200 font-display mb-1">Space Grotesk</div>
+        <div>Dành riêng cho Tiêu đề & Nút bấm. Mang phong cách máy móc arcade sắc sảo, chống cảm giác phẳng đơn điệu.</div>
+      </div>
+      <div class="p-2.5 rounded-lg bg-paper-900 border border-paper-800">
+        <div class="font-bold text-amberInk-400 font-hanzi mb-1">Noto Serif SC (漢字)</div>
+        <div>Chữ Hán phông chân phương nét mực (Serif). Tránh font Sans Hán thô cứng rẻ tiền của hệ điều hành.</div>
+      </div>
+    </div>
+  </section>
+
+</body>
+</html>

@@ -19,7 +19,10 @@ interface CanvasGameProps {
   onGoHome: () => void;
   initialSettings?: Partial<GameSettings>;
   customWords?: WordItem[];
+  onSetCustomWords?: (words: WordItem[]) => void;
   onAddCustomWords?: (words: WordItem[]) => void;
+  onSaveCustomWord?: (word: WordItem, targetIndex?: number) => void;
+  onDeleteCustomWord?: (wordId: string) => void;
   onClearCustomWords?: () => void;
 }
 
@@ -27,7 +30,10 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
   onGoHome,
   initialSettings,
   customWords = [],
+  onSetCustomWords,
   onAddCustomWords,
+  onSaveCustomWord,
+  onDeleteCustomWord,
   onClearCustomWords,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -125,10 +131,11 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
     shuffledDeckRef.current = deck;
   }, [settings.selectedHsk]);
 
-  // Reset deck whenever HSK level changes
+  // Reset deck whenever HSK level or customWords changes
   useEffect(() => {
+    customVocabRef.current = customWords;
     refreshShuffledDeck();
-  }, [settings.selectedHsk, refreshShuffledDeck]);
+  }, [customWords, settings.selectedHsk, refreshShuffledDeck]);
 
   // Engine Callbacks
   const handleDamage = useCallback((missedWord: WordItem) => {
@@ -614,14 +621,59 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
           engineRef.current?.start();
         }}
         customWords={customWords}
+        onSetCustomWords={words => {
+          if (onSetCustomWords) {
+            onSetCustomWords(words);
+          } else {
+            customVocabRef.current = words;
+            refreshShuffledDeck();
+          }
+          setSettings(prev => ({ ...prev, selectedHsk: 'Tất cả' }));
+        }}
         onAddCustomWords={words => {
           if (onAddCustomWords) {
             onAddCustomWords(words);
           } else {
-            customVocabRef.current.push(...words);
+            const updated = [...customVocabRef.current];
+            words.forEach(nw => {
+              const existingIdx = updated.findIndex(w => w.fullWord === nw.fullWord);
+              if (existingIdx !== -1) {
+                updated[existingIdx] = nw;
+              } else {
+                updated.push(nw);
+              }
+            });
+            customVocabRef.current = updated;
             refreshShuffledDeck();
           }
           setSettings(prev => ({ ...prev, selectedHsk: 'Tất cả' }));
+        }}
+        onSaveCustomWord={(word, targetIndex) => {
+          if (onSaveCustomWord) {
+            onSaveCustomWord(word, targetIndex);
+          } else {
+            const updated = [...customVocabRef.current];
+            if (targetIndex !== undefined && targetIndex >= 0 && targetIndex < updated.length) {
+              updated[targetIndex] = word;
+            } else {
+              const existingIdx = updated.findIndex(w => w.fullWord === word.fullWord);
+              if (existingIdx !== -1) {
+                updated[existingIdx] = word;
+              } else {
+                updated.push(word);
+              }
+            }
+            customVocabRef.current = updated;
+            refreshShuffledDeck();
+          }
+        }}
+        onDeleteCustomWord={wordId => {
+          if (onDeleteCustomWord) {
+            onDeleteCustomWord(wordId);
+          } else {
+            customVocabRef.current = customVocabRef.current.filter(w => w.id !== wordId);
+            refreshShuffledDeck();
+          }
         }}
         onClearCustomWords={() => {
           if (onClearCustomWords) {

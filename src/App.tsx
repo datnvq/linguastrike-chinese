@@ -42,18 +42,72 @@ export const App: React.FC = () => {
     }
   });
 
-  const handleAddCustomWords = (newWords: WordItem[]) => {
+  const saveCustomWordsToStorage = (words: WordItem[]) => {
+    try {
+      localStorage.setItem('linguastrike_custom_words', JSON.stringify(words));
+    } catch (e) {
+      console.warn('Could not save custom words to localStorage', e);
+    }
+  };
+
+  // 1. Ghi đè file mới luôn khi add file
+  const handleSetCustomWords = (newWords: WordItem[]) => {
+    setCustomWords(newWords);
+    saveCustomWordsToStorage(newWords);
+  };
+
+  // 2. Thêm từ mới (đẩy xuống cuối) hoặc sửa từ bị sai (thay chỗ ghi đè tại vị trí đó)
+  const handleSaveCustomWord = (word: WordItem, targetIndex?: number) => {
     setCustomWords(prev => {
-      const updated = [...prev, ...newWords];
-      try {
-        localStorage.setItem('linguastrike_custom_words', JSON.stringify(updated));
-      } catch (e) {
-        console.warn('Could not save custom words to localStorage', e);
+      let updated: WordItem[];
+      if (targetIndex !== undefined && targetIndex >= 0 && targetIndex < prev.length) {
+        // Ghi đè đúng vị trí index được chọn
+        updated = [...prev];
+        updated[targetIndex] = word;
+      } else {
+        // Kiểm tra xem Hán tự đã có sẵn trong danh sách chưa
+        const existingIdx = prev.findIndex(w => w.fullWord === word.fullWord);
+        if (existingIdx !== -1) {
+          // Ghi đè thay thế tại vị trí từ cũ
+          updated = [...prev];
+          updated[existingIdx] = word;
+        } else {
+          // Từ mới toanh -> Đẩy vào dưới cùng danh sách
+          updated = [...prev, word];
+        }
       }
+      saveCustomWordsToStorage(updated);
       return updated;
     });
   };
 
+  // 3. Xử lý khi thêm danh sách từ: từ trùng thì ghi đè tại vị trí cũ, từ mới đẩy xuống cuối
+  const handleAddCustomWords = (newWords: WordItem[]) => {
+    setCustomWords(prev => {
+      const updated = [...prev];
+      newWords.forEach(nw => {
+        const existingIdx = updated.findIndex(w => w.fullWord === nw.fullWord);
+        if (existingIdx !== -1) {
+          updated[existingIdx] = nw;
+        } else {
+          updated.push(nw);
+        }
+      });
+      saveCustomWordsToStorage(updated);
+      return updated;
+    });
+  };
+
+  // 4. Xóa 1 từ cụ thể
+  const handleDeleteCustomWord = (wordId: string) => {
+    setCustomWords(prev => {
+      const updated = prev.filter(w => w.id !== wordId);
+      saveCustomWordsToStorage(updated);
+      return updated;
+    });
+  };
+
+  // 5. Xóa toàn bộ
   const handleClearCustomWords = () => {
     setCustomWords([]);
     try {
@@ -146,7 +200,10 @@ export const App: React.FC = () => {
         initialSettings={configuredSettings}
         onGoHome={() => setHasStarted(false)}
         customWords={customWords}
+        onSetCustomWords={handleSetCustomWords}
         onAddCustomWords={handleAddCustomWords}
+        onSaveCustomWord={handleSaveCustomWord}
+        onDeleteCustomWord={handleDeleteCustomWord}
         onClearCustomWords={handleClearCustomWords}
       />
     );
@@ -368,7 +425,10 @@ export const App: React.FC = () => {
         onUpdateSettings={newS => setConfiguredSettings(prev => ({ ...prev, ...newS }))}
         onClose={() => setIsHomeSettingsOpen(false)}
         customWords={customWords}
+        onSetCustomWords={handleSetCustomWords}
         onAddCustomWords={handleAddCustomWords}
+        onSaveCustomWord={handleSaveCustomWord}
+        onDeleteCustomWord={handleDeleteCustomWord}
         onClearCustomWords={handleClearCustomWords}
       />
 

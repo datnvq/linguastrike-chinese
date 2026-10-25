@@ -138,13 +138,13 @@ export class GameEngine {
 
   public spawnBoss(boss: BossEnemy) {
     this.currentBoss = boss;
-    soundManager.speak(boss.audioText, 'zh');
+    soundManager.speak(boss.audioText, this.settings.language || 'zh');
     this.triggerScreenShake(8, 250);
   }
 
   public replayCurrentAudio() {
     if (this.currentBoss) {
-      soundManager.speak(this.currentBoss.audioText, 'zh', true);
+      soundManager.speak(this.currentBoss.audioText, this.settings.language || 'zh', true);
       return;
     }
     const target = this.currentTarget || this.getLowestWord();
@@ -579,18 +579,18 @@ export class GameEngine {
           soundManager.speak(word.wordItem.audioText, word.wordItem.language, false);
           this.callbacks.onDamage(word.wordItem);
         } else {
-          soundManager.playDamageSound();
-          this.triggerScreenShake(6, 200);
-          this.spawnExplosion(word.x + word.width / 2, this.groundY, 15, '#f59e0b');
+          // Zen mode: Nhẹ nhàng, không trừ máu, không rung lắc mạnh, đọc mẫu để người học nhớ từ
+          this.triggerScreenShake(3, 100);
+          this.spawnExplosion(word.x + word.width / 2, this.groundY, 12, '#34d399');
           soundManager.speak(word.wordItem.audioText, word.wordItem.language, false);
           this.floatingTexts.push({
             id: `ft-miss-${Date.now()}`,
-            text: `Ôn lại: ${word.wordItem.fullWord}`,
+            text: `Ôn lại: ${word.wordItem.fullWord} [${word.wordItem.pinyinSpaced}]`,
             x: word.x + word.width / 2,
             y: this.groundY - 30,
             vy: -1.0,
             alpha: 1,
-            color: '#fbbf24'
+            color: '#34d399'
           });
           this.callbacks.onDamage(word.wordItem);
         }

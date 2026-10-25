@@ -11,11 +11,16 @@ import {
   Pencil,
   Volume2,
   Search,
-  FileDown
+  FileDown,
+  RefreshCw,
+  Coffee,
+  Zap,
+  BookOpen
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import type { GameSettings, ClozeStyle, HskLevel, WordItem } from '../types/game';
 import { soundManager } from '../game/SoundManager';
+import { getLessonsByLevel, getTopicsByLevel } from '../data/vocabData';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -53,6 +58,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<'game' | 'audio' | 'vocab'>('game');
   const [customText, setCustomText] = useState<string>('');
   const [targetLevel, setTargetLevel] = useState<string>('auto');
+  const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
   const [customImportSuccess, setCustomImportSuccess] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -65,6 +71,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [formHanViet, setFormHanViet] = useState<string>('');
   const [formLevel, setFormLevel] = useState<HskLevel>('Đời sống');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [customListFilter, setCustomListFilter] = useState<string>('Tất cả');
 
   if (!isOpen) return null;
 
@@ -82,20 +89,71 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     soundManager.speak(phrase, 'zh', true);
   };
 
-  // Helper to process parsed rows
+  // Helper to process parsed rows (Hỗ trợ đa ngôn ngữ: Trung, Anh, Nhật)
   const processRowsIntoWords = (rows: Record<string, unknown>[], defaultLevel: string): WordItem[] => {
     const newWords: WordItem[] = [];
 
     rows.forEach((r, idx) => {
-      const hanzi = (r['Hán tự'] || r['Hanzi'] || r['hanzi'] || r['Từ'] || r['Word'] || r['0'] || '').toString().trim();
-      const pinyin = (r['Pinyin'] || r['pinyin'] || r['Phiên âm'] || r['1'] || '').toString().trim();
-      const category = (r['Từ loại'] || r['Category'] || r['type'] || r['2'] || '').toString().trim();
-      const meaning = (r['Nghĩa tiếng Việt'] || r['Nghĩa'] || r['nghia'] || r['Meaning'] || r['3'] || '').toString().trim();
+      // 1. Nhận diện mặt chữ (Hán tự / Word / Từ vựng / Kanji)
+      const wordText = (
+        r['Hán tự'] || r['Hanzi'] || r['hanzi'] ||
+        r['Từ'] || r['Từ vựng'] || r['Word'] || r['word'] || r['Vocabulary'] ||
+        r['Kanji'] || r['0'] || ''
+      ).toString().trim();
+
+      // 2. Nhận diện phiên âm / Pinyin / IPA / Reading / Romaji
+      const phoneticText = (
+        r['Pinyin'] || r['pinyin'] ||
+        r['Phiên âm'] || r['phien_am'] ||
+        r['IPA'] || r['ipa'] ||
+        r['Reading'] || r['reading'] ||
+        r['Romaji'] || r['romaji'] ||
+        r['1'] || ''
+      ).toString().trim();
+
+      // 3. Nhận diện nghĩa
+      const meaning = (
+        r['Nghĩa tiếng Việt'] || r['Nghĩa'] || r['nghia'] ||
+        r['Meaning'] || r['meaning'] || r['Definition'] ||
+        r['3'] || ''
+      ).toString().trim();
+
+      // 4. Các thông tin bổ trợ khác
+      const category = (r['Từ loại'] || r['Category'] || r['category'] || r['type'] || r['2'] || '').toString().trim();
       const hanViet = (r['Âm Hán-Việt'] || r['Hán-Việt'] || r['Hán Việt'] || r['hanViet'] || r['han_viet'] || '').toString().trim();
       const meaningEn = (r['Nghĩa tiếng Anh'] || r['MeaningEn'] || r['4'] || '').toString().trim();
-      const levelCol = (r['Cấp độ'] || r['Level'] || r['hsk'] || '').toString().trim();
+      const levelCol = (r['Cấp độ'] || r['Level'] || r['level'] || r['hsk'] || '').toString().trim();
 
-      if (hanzi && pinyin) {
+      if (wordText) {
+        // Tự động nhận diện ngôn ngữ
+        let lang: 'en' | 'ja' | 'zh' = 'zh';
+        if (/[ぁ-んァ-ン]/.test(wordText) || /[ぁ-んァ-ン]/.test(phoneticText)) {
+          lang = 'ja';
+        } else if (/^[a-zA-Z0-9\s\-',.?!]+$/.test(wordText)) {
+          lang = 'en';
+        } else if (/[一-龥]/.test(wordText)) {
+          lang = 'zh';
+        }
+
+        // Tạo chuỗi gõ latinInput
+        let latinInput = '';
+        let pinyinSpaced = phoneticText;
+
+        if (lang === 'en') {
+          // Tiếng Anh: gõ chữ cái của từ đó (vd: "apple" -> gõ "apple")
+          latinInput = wordText.toLowerCase().replace(/[^a-z0-9]/g, '');
+          pinyinSpaced = phoneticText || wordText;
+        } else if (lang === 'ja') {
+          // Tiếng Nhật: gõ Romaji
+          latinInput = normalizePinyin(phoneticText || wordText);
+          pinyinSpaced = phoneticText || wordText;
+        } else {
+          // Tiếng Trung: gõ Pinyin chuẩn
+          const pinyinVal = phoneticText || wordText;
+          latinInput = normalizePinyin(pinyinVal);
+          pinyinSpaced = pinyinVal;
+        }
+
         let level: HskLevel = 'Đời sống';
         if (defaultLevel !== 'auto' && defaultLevel !== 'Tất cả') {
           level = defaultLevel as HskLevel;
@@ -105,16 +163,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         newWords.push({
           id: `custom-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
-          language: 'zh',
+          language: lang,
           hskLevel: level,
-          category: category || 'Tự nhập',
-          fullWord: hanzi,
-          pinyinSpaced: pinyin,
-          latinInput: normalizePinyin(pinyin),
-          meaning: meaning || hanzi,
+          category: category || (lang === 'en' ? 'Tiếng Anh' : lang === 'ja' ? 'Tiếng Nhật' : 'Tự nhập'),
+          fullWord: wordText,
+          pinyinSpaced: pinyinSpaced,
+          latinInput: latinInput || wordText.toLowerCase().replace(/[^a-z0-9]/g, ''),
+          meaning: meaning || wordText,
           hanViet: hanViet || undefined,
           meaningEn: meaningEn || '',
-          audioText: hanzi,
+          audioText: wordText,
         });
       }
     });
@@ -234,9 +292,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
       const newWords = processRowsIntoWords(rows, targetLevel);
 
-      if (newWords.length > 0 && onAddCustomWords) {
-        onAddCustomWords(newWords);
-        setCustomImportSuccess(`Đã xử lý ${newWords.length} từ: các từ trùng được ghi đè tại vị trí cũ, từ mới được đẩy vào cuối.`);
+      if (newWords.length > 0) {
+        if (importMode === 'replace') {
+          if (onSetCustomWords) {
+            onSetCustomWords(newWords);
+          } else if (onAddCustomWords) {
+            onAddCustomWords(newWords);
+          }
+          setCustomImportSuccess(`Đã nạp mới ${newWords.length} từ (Ghi đè thay thế toàn bộ danh sách cũ).`);
+        } else {
+          if (onAddCustomWords) {
+            onAddCustomWords(newWords);
+          }
+          setCustomImportSuccess(`Đã cộng thêm ${newWords.length} từ vào danh sách hiện tại (Tổng: ${customWords.length + newWords.length} từ).`);
+        }
         setTimeout(() => setCustomImportSuccess(null), 3500);
         setCustomText('');
       } else {
@@ -247,7 +316,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  // Handle File Upload (.xlsx, .xls, .csv) - Ghi đè file mới luôn!
+  // Handle File Upload (.xlsx, .xls, .csv)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImportError(null);
     const file = e.target.files?.[0];
@@ -271,17 +340,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         const newWords = processRowsIntoWords(allRows, targetLevel);
 
         if (newWords.length > 0) {
-          // Ghi đè file mới luôn theo yêu cầu
-          if (onSetCustomWords) {
-            onSetCustomWords(newWords);
-          } else if (onAddCustomWords) {
-            onAddCustomWords(newWords);
+          if (importMode === 'replace') {
+            if (onSetCustomWords) {
+              onSetCustomWords(newWords);
+            } else if (onAddCustomWords) {
+              onAddCustomWords(newWords);
+            }
+            setCustomImportSuccess(`Đã nạp file "${file.name}" (${newWords.length} từ) thành công! Đã thay thế toàn bộ danh sách cũ.`);
+          } else {
+            if (onAddCustomWords) {
+              onAddCustomWords(newWords);
+            }
+            setCustomImportSuccess(`Đã cộng thêm ${newWords.length} từ từ file "${file.name}" vào danh sách hiện tại.`);
           }
-          setCustomImportSuccess(`Đã nạp file mới "${file.name}" thành công (${newWords.length} từ). Đã thay thế toàn bộ danh sách cũ.`);
           setTimeout(() => setCustomImportSuccess(null), 4000);
           handleCancelEdit();
         } else {
-          setImportError('Không tìm thấy cột "Hán tự" và "Pinyin" trong file.');
+          setImportError('Không tìm thấy cột từ vựng hợp lệ trong file (Hán tự / Word / Từ, Pinyin / Phiên âm).');
         }
       } catch (err: unknown) {
         setImportError(`Lỗi đọc file: ${err instanceof Error ? err.message : String(err)}`);
@@ -315,6 +390,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const filteredCustomWords = customWords.filter(w => {
+    const matchesLevel =
+      customListFilter === 'Tất cả' || (w.hskLevel || 'Đời sống') === customListFilter;
+    if (!matchesLevel) return false;
     if (!searchTerm.trim()) return true;
     const s = searchTerm.trim().toLowerCase();
     return (
@@ -384,6 +462,115 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Tab 1: Game Settings */}
         {activeTab === 'game' && (
           <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1 text-xs">
+            {/* Game Mode: Zen vs Arcade */}
+            <div>
+              <span className="text-stone-300 font-medium block mb-1.5">
+                Phong cách trải nghiệm (Áp lực & Nhịp độ):
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ gameMode: 'practice' })}
+                  className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer flex items-center justify-between ${
+                    settings.gameMode === 'practice'
+                      ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500/30'
+                      : 'bg-[#151412] border-[#2c2822] text-stone-400 hover:border-[#443e35]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Coffee className="w-4 h-4 text-emerald-400" />
+                    <div>
+                      <div className="text-xs font-semibold text-white">☕ Thư Giãn (Zen)</div>
+                      <div className="text-[10px] text-stone-400">Không Game Over, không trừ máu</div>
+                    </div>
+                  </div>
+                  {settings.gameMode === 'practice' && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500 text-black font-bold">
+                      BẬT
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ gameMode: 'arcade' })}
+                  className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer flex items-center justify-between ${
+                    settings.gameMode === 'arcade'
+                      ? 'bg-amber-500/15 border-amber-500 text-amber-300 font-bold ring-1 ring-amber-500/30'
+                      : 'bg-[#151412] border-[#2c2822] text-stone-400 hover:border-[#443e35]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    <div>
+                      <div className="text-xs font-semibold text-white">🚀 Chiến Binh (Arcade)</div>
+                      <div className="text-[10px] text-stone-400">Thanh Máu, Boss, Fever x2</div>
+                    </div>
+                  </div>
+                  {settings.gameMode === 'arcade' && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-black font-bold">
+                      BẬT
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Scope: Lesson & Topic if HSK 1 - 6 */}
+            {settings.selectedHsk !== 'Đời sống' && settings.selectedHsk !== 'Tự nạp' && (
+              <div className="p-3 bg-[#151412] border border-[#2c2822] rounded-xl space-y-2">
+                <div className="flex items-center justify-between text-stone-300 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Bài học đang chọn ({settings.selectedHsk}):</span>
+                  </span>
+                  {(settings.selectedLessonNumber !== 'all' || settings.selectedTopic !== 'all') && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings({ selectedLessonNumber: 'all', selectedTopic: 'all' })}
+                      className="text-[10px] text-amber-400 hover:underline cursor-pointer"
+                    >
+                      Học toàn bộ bài
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-stone-500 block mb-1">Theo Bài học:</label>
+                    <select
+                      value={settings.selectedLessonNumber || 'all'}
+                      onChange={e => onUpdateSettings({ selectedLessonNumber: e.target.value, selectedTopic: 'all' })}
+                      className="w-full bg-[#1c1a17] border border-[#353028] text-stone-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500 cursor-pointer"
+                    >
+                      <option value="all">-- Toàn bộ bài học --</option>
+                      {getLessonsByLevel(settings.selectedHsk).map(l => (
+                        <option key={l.id} value={l.lessonNumber}>
+                          {l.lessonNumber}: {l.titleVi} ({l.wordCount} từ)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-stone-500 block mb-1">Hoặc theo Chủ đề:</label>
+                    <select
+                      value={settings.selectedTopic || 'all'}
+                      onChange={e => onUpdateSettings({ selectedTopic: e.target.value, selectedLessonNumber: 'all' })}
+                      className="w-full bg-[#1c1a17] border border-[#353028] text-stone-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500 cursor-pointer"
+                    >
+                      <option value="all">-- Tất cả chủ đề --</option>
+                      {getTopicsByLevel(settings.selectedHsk).map(t => (
+                        <option key={t.id} value={t.topicName}>
+                          {t.topicName} ({t.wordCount} từ)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Play Mode */}
             <div>
               <span className="text-stone-300 font-medium block mb-1.5">
@@ -635,6 +822,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
+            {/* Chế độ nạp dữ liệu: Ghi đè vs Cộng thêm */}
+            <div className="bg-[#151412] border border-[#2c2822] rounded-xl p-3">
+              <span className="text-stone-300 font-semibold block mb-2 flex items-center gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                <span>Chế độ nạp file / danh sách từ:</span>
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setImportMode('replace')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    importMode === 'replace'
+                      ? 'bg-amber-500/15 border-amber-500 text-amber-300 font-bold shadow-sm'
+                      : 'bg-[#1c1a17] border-[#2f2b25] text-stone-400 hover:border-[#443e35]'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Ghi đè làm mới (Thay thế toàn bộ)</span>
+                  </div>
+                  <p className="text-[10px] text-stone-400 font-normal mt-1 leading-relaxed">
+                    Xóa sạch từ cũ, biến file mới thành bộ từ duy nhất để học.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setImportMode('append')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    importMode === 'append'
+                      ? 'bg-amber-500/15 border-amber-500 text-amber-300 font-bold shadow-sm'
+                      : 'bg-[#1c1a17] border-[#2f2b25] text-stone-400 hover:border-[#443e35]'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Cộng thêm vào đuôi (Append)</span>
+                  </div>
+                  <p className="text-[10px] text-stone-400 font-normal mt-1 leading-relaxed">
+                    Giữ nguyên các từ cũ, bổ sung từ mới vào dưới; cập nhật nếu trùng.
+                  </p>
+                </button>
+              </div>
+            </div>
+
             {/* Phân loại cấp độ khi nạp file */}
             <div>
               <span className="text-stone-300 font-medium block mb-1.5">
@@ -658,15 +890,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
-            {/* 1. NẠP FILE MỚI (Ghi đè file mới luôn) */}
+            {/* 1. NẠP FILE */}
             <div className="border border-dashed border-[#3a342b] hover:border-amber-500/50 rounded-xl p-4 text-center bg-[#151412]/80 transition-colors">
               <Upload className="w-5 h-5 text-amber-400 mx-auto mb-1.5" />
               <div className="font-bold text-stone-200 text-xs">
-                Tải lên file Excel (.xlsx) hoặc CSV mới
+                Tải lên file Excel (.xlsx, .xls) hoặc CSV
               </div>
               <p className="text-[11px] text-stone-400 mt-0.5">
-                💡 Khi đẩy file, hệ thống sẽ <strong className="text-amber-400">ghi đè và tạo bộ từ mới hoàn toàn</strong> (thay thế toàn bộ file cũ).
+                Hỗ trợ đa ngôn ngữ: tiếng Trung (Hán tự, Pinyin), tiếng Anh (Word, IPA/Nghĩa), tiếng Nhật (Kanji, Romaji).
               </p>
+              <div className="mt-1 text-[11px] font-medium text-amber-400">
+                Chế độ áp dụng: {importMode === 'replace' ? '🔄 Ghi đè (Thay thế toàn bộ)' : '➕ Cộng thêm vào danh sách cũ'}
+              </div>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -680,7 +915,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="inline-flex items-center gap-1.5 mt-2.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold rounded-lg text-xs cursor-pointer transition-colors"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>Chọn file từ máy tính (Ghi đè file mới)</span>
+                <span>{importMode === 'replace' ? 'Chọn file để ghi đè làm mới' : 'Chọn file để cộng thêm vào đuôi'}</span>
               </label>
             </div>
 
@@ -838,7 +1073,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 rows={3}
                 value={customText}
                 onChange={e => setCustomText(e.target.value)}
-                placeholder={`Hán tự, Pinyin, Nghĩa tiếng Việt\n你好, ni hao, xin chào\n谢谢, xie xie, cảm ơn`}
+                placeholder={`Mỗi dòng 1 từ (Định dạng: Từ, Phiên âm, Nghĩa)\nVí dụ Tiếng Trung: 你好, ni hao, xin chào\nVí dụ Tiếng Anh: apple, /ˈæp.əl/, quả táo\nVí dụ Tiếng Nhật: 桜, sakura, hoa anh đào`}
                 className="w-full bg-[#151412] border border-[#2c2822] rounded-xl p-2.5 text-xs font-mono text-stone-200 focus:outline-none focus:border-amber-500/60 custom-scrollbar"
               />
               <button
@@ -846,7 +1081,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={handleImportCustomVocab}
                 className="w-full mt-1.5 bg-[#25221d] hover:bg-[#322d26] border border-[#3a342b] text-stone-200 font-medium py-2 rounded-xl text-xs transition-colors cursor-pointer"
               >
-                Nạp danh sách từ này (từ trùng sẽ ghi đè vị trí cũ, từ mới đẩy xuống cuối)
+                {importMode === 'replace' 
+                  ? 'Ghi đè làm mới bằng danh sách này (Thay thế toàn bộ)' 
+                  : 'Cộng thêm danh sách này vào đuôi'}
               </button>
             </div>
 
@@ -895,6 +1132,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
+                {/* Level Filter Tabs for Custom Words */}
+                <div className="flex flex-wrap gap-1">
+                  {['Tất cả', 'HSK 1', 'HSK 2', 'HSK 3', 'HSK 4', 'HSK 5', 'HSK 6', 'Đời sống'].map(lvl => {
+                    const cnt =
+                      lvl === 'Tất cả'
+                        ? customWords.length
+                        : customWords.filter(w => (w.hskLevel || 'Đời sống') === lvl).length;
+                    const isSelected = customListFilter === lvl;
+                    return (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setCustomListFilter(lvl)}
+                        className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold'
+                            : cnt === 0
+                            ? 'text-stone-600 border-[#22201c] bg-[#121110]'
+                            : 'text-stone-400 hover:text-stone-200 border-[#2c2822] bg-[#151412]'
+                        }`}
+                      >
+                        {lvl} ({cnt})
+                      </button>
+                    );
+                  })}
+                </div>
+
                 {/* Search in custom list */}
                 {customWords.length > 5 && (
                   <div className="relative">
@@ -925,6 +1189,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <span className="text-[10px] text-stone-500 font-mono w-6 shrink-0 text-center">
                             #{originalIndex + 1}
                           </span>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#25221d] text-amber-400 border border-amber-500/30 shrink-0">
+                            {w.hskLevel || 'Đời sống'}
+                          </span>
                           <span className="font-bold text-base text-white font-mono shrink-0">
                             {w.fullWord}
                           </span>
@@ -944,7 +1211,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
-                            onClick={() => soundManager.speak(w.audioText, 'zh', true)}
+                            onClick={() => soundManager.speak(w.audioText, w.language || 'zh', true)}
                             title="Nghe phát âm"
                             className="p-1 text-stone-400 hover:text-white rounded hover:bg-[#25221d] transition-colors cursor-pointer"
                           >

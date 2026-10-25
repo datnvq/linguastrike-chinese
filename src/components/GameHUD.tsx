@@ -12,7 +12,7 @@ import {
   Flame,
   Snowflake
 } from 'lucide-react';
-import type { GameStats, Language, GameMode, SpawnMode, HskLevel } from '../types/game';
+import type { GameStats, Language, GameMode, SpawnMode, HskLevel, VocabSource } from '../types/game';
 
 interface GameHUDProps {
   hp: number;
@@ -21,7 +21,10 @@ interface GameHUDProps {
   currentLanguage: Language;
   gameMode: GameMode;
   spawnMode: SpawnMode;
+  vocabSource?: VocabSource;
   selectedHsk: HskLevel;
+  selectedLessonNumber?: string;
+  selectedTopic?: string;
   isPaused: boolean;
   isSoundMuted: boolean;
   onToggleMute: () => void;
@@ -38,7 +41,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   maxHp,
   stats,
   gameMode,
+  vocabSource,
   selectedHsk,
+  selectedLessonNumber,
+  selectedTopic,
   isPaused,
   isSoundMuted,
   onToggleMute,
@@ -90,8 +96,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             </div>
           </div>
         ) : (
-          <div className="bg-[#1c1a17]/95 border border-[#353028] rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-emerald-400 shadow-sm">
-            ZEN
+          <div className="bg-[#1c1a17]/95 border border-[#353028] rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-emerald-400 shadow-sm flex items-center gap-1.5">
+            <span>☕</span>
+            <span>ZEN THƯ GIÃN</span>
           </div>
         )}
 
@@ -119,8 +126,22 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </span>
         </button>
 
-        <div className="bg-[#1c1a17]/95 border border-[#353028] rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-amber-400 hidden lg:block shadow-sm">
-          {selectedHsk}
+        <div className="bg-[#1c1a17]/95 border border-[#353028] rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-amber-400 hidden lg:flex items-center gap-1 shadow-sm">
+          {vocabSource === 'custom' || selectedHsk === 'Tự nạp' ? (
+            <span>⭐ Của tôi • {selectedHsk === 'Tự nạp' ? 'Tất cả' : selectedHsk}</span>
+          ) : vocabSource === 'both' ? (
+            <span>🔄 Kết hợp • {selectedHsk}</span>
+          ) : (
+            <span>
+              {selectedHsk}
+              {selectedLessonNumber && selectedLessonNumber !== 'all' ? ` • ${selectedLessonNumber}` : ''}
+              {!selectedLessonNumber || selectedLessonNumber === 'all'
+                ? selectedTopic && selectedTopic !== 'all'
+                  ? ` • ${selectedTopic}`
+                  : ''
+                : ''}
+            </span>
+          )}
         </div>
       </div>
 
@@ -181,7 +202,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         {/* Quick Mute / Voice Toggle */}
         <button
           onClick={onToggleMute}
-          title={isSoundMuted ? 'Bật âm thanh (M)' : 'Tắt âm thanh (M)'}
+          title={isSoundMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
           aria-label={isSoundMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
           className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1 shadow-sm ${
             isSoundMuted

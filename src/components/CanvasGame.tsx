@@ -6,7 +6,7 @@ import { GameOverModal } from './GameOverModal';
 import { VocabLibraryModal } from './VocabLibraryModal';
 import { PauseModal } from './PauseModal';
 import type { GameSettings, GameStats, WordItem, BossEnemy, ActiveWord } from '../types/game';
-import { CHINESE_HSK_DATA } from '../data/vocabData';
+import { CHINESE_HSK_DATA, CHINESE_XIEHANZI_DATA, CHINESE_HSK30_DATA } from '../data/vocabData';
 import { createBossEnemy } from '../data/bossData';
 import { createActiveWord } from '../utils/clozeHelper';
 import { soundManager } from '../game/SoundManager';
@@ -117,10 +117,52 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
 
   // Fisher-Yates True Random Shuffle Helper
   const refreshShuffledDeck = useCallback(() => {
-    let pool = [...CHINESE_HSK_DATA, ...customVocabRef.current];
-    if (settings.selectedHsk !== 'Tất cả') {
-      const filtered = pool.filter(w => w.hskLevel === settings.selectedHsk);
-      if (filtered.length > 0) pool = filtered;
+    let pool: WordItem[] = [];
+    const source = settings.vocabSource || (settings.selectedHsk === 'Tự nạp' ? 'custom' : 'system');
+    let baseList: WordItem[] = [];
+
+    if (source === 'custom') {
+      // 100% chỉ lấy từ bộ từ tự nạp
+      baseList = [...customVocabRef.current];
+    } else if (source === 'both') {
+      // Học kết hợp cả từ tự nạp và từ hệ thống
+      const sysList = settings.curriculum === 'hsk30' ? CHINESE_HSK30_DATA : CHINESE_XIEHANZI_DATA;
+      baseList = [...sysList, ...customVocabRef.current];
+    } else {
+      // Dữ liệu gốc HSK hệ thống (mặc định Giáo trình Chuẩn XieHanzi 146 bài)
+      baseList = settings.curriculum === 'hsk30' ? [...CHINESE_HSK30_DATA] : [...CHINESE_XIEHANZI_DATA];
+    }
+
+    // Lọc theo cấp độ đã chọn (HSK 1 - 6, Đời sống, hoặc Tất cả)
+    if (settings.selectedHsk === 'Tất cả' || settings.selectedHsk === 'Tự nạp') {
+      pool = baseList;
+    } else {
+      pool = baseList.filter(w => (w.hskLevel || 'Đời sống') === settings.selectedHsk);
+    }
+
+    // Lọc tiếp theo Bài học cụ thể nếu được chọn
+    if (settings.selectedLessonNumber && settings.selectedLessonNumber !== 'all') {
+      const lessonFiltered = pool.filter(w => w.lessonNumber === settings.selectedLessonNumber);
+      if (lessonFiltered.length > 0) {
+        pool = lessonFiltered;
+      }
+    }
+
+    // Lọc tiếp theo Chủ đề cụ thể nếu được chọn
+    if (settings.selectedTopic && settings.selectedTopic !== 'all') {
+      const topicFiltered = pool.filter(w => w.topic === settings.selectedTopic);
+      if (topicFiltered.length > 0) {
+        pool = topicFiltered;
+      }
+    }
+
+    // Dự phòng an toàn nếu cấp độ trong nguồn này không có từ
+    if (pool.length === 0) {
+      if (source === 'custom' && customVocabRef.current.length > 0) {
+        pool = [...customVocabRef.current];
+      } else {
+        pool = [...CHINESE_HSK_DATA.slice(0, 50)];
+      }
     }
 
     const deck = [...pool];
@@ -129,13 +171,13 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
       [deck[i], deck[j]] = [deck[j], deck[i]];
     }
     shuffledDeckRef.current = deck;
-  }, [settings.selectedHsk]);
+  }, [settings.selectedHsk, settings.vocabSource, settings.curriculum, settings.selectedLessonNumber, settings.selectedTopic]);
 
-  // Reset deck whenever HSK level or customWords changes
+  // Reset deck whenever HSK level, vocabSource or customWords changes
   useEffect(() => {
     customVocabRef.current = customWords;
     refreshShuffledDeck();
-  }, [customWords, settings.selectedHsk, refreshShuffledDeck]);
+  }, [customWords, settings.selectedHsk, settings.vocabSource, refreshShuffledDeck]);
 
   // Engine Callbacks
   const handleDamage = useCallback((missedWord: WordItem) => {
@@ -332,7 +374,7 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
       if (shuffledDeckRef.current.length === 0) {
         refreshShuffledDeck();
       }
-      wordItem = shuffledDeckRef.current.pop() || CHINESE_HSK_DATA[0];
+      wordItem = shuffledDeckRef.current.pop() || (customVocabRef.current[0] || CHINESE_HSK_DATA[0]);
     }
 
     const canvasWidth = canvasRef.current?.width || 800;
@@ -558,7 +600,10 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
         currentLanguage={settings.language}
         gameMode={settings.gameMode}
         spawnMode={settings.spawnMode}
+        vocabSource={settings.vocabSource}
         selectedHsk={settings.selectedHsk}
+        selectedLessonNumber={settings.selectedLessonNumber}
+        selectedTopic={settings.selectedTopic}
         isPaused={isPaused}
         isSoundMuted={!settings.soundEnabled}
         onToggleMute={handleToggleMute}

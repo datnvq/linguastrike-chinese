@@ -1,5 +1,8 @@
 import type { WordItem, Language } from '../types/game';
 import { HSK30_OFFICIAL_DATA } from './hsk30Data';
+import { XIEHANZI_WORDS, XIEHANZI_LESSONS, XIEHANZI_TOPICS, getLessonsByLevel, getTopicsByLevel, filterXiehanziWords } from './xiehanziData';
+
+export { XIEHANZI_WORDS, XIEHANZI_LESSONS, XIEHANZI_TOPICS, getLessonsByLevel, getTopicsByLevel, filterXiehanziWords };
 
 export const CHINESE_LIFE_DATA: WordItem[] = [
   {
@@ -54,11 +57,24 @@ export const CHINESE_LIFE_DATA: WordItem[] = [
   }
 ];
 
-// Combine Official HSK 3.0 (5,181 words) and Life words
-export const CHINESE_HSK_DATA: WordItem[] = [
+// Dữ liệu HSK 3.0 (5,181 từ)
+export const CHINESE_HSK30_DATA: WordItem[] = [
   ...HSK30_OFFICIAL_DATA,
   ...CHINESE_LIFE_DATA
 ];
+
+// Dữ liệu Giáo trình Chuẩn XieHanzi 146 bài (4,093 từ) kèm từ Đời sống
+export const CHINESE_XIEHANZI_DATA: WordItem[] = [
+  ...XIEHANZI_WORDS,
+  ...CHINESE_LIFE_DATA
+];
+
+// Mặc định sử dụng Giáo trình Chuẩn XieHanzi (hỗ trợ phân bài học 146 bài)
+export const CHINESE_HSK_DATA: WordItem[] = CHINESE_XIEHANZI_DATA;
+
+export function getChineseVocabByCurriculum(curriculum: 'xiehanzi' | 'hsk30' = 'xiehanzi'): WordItem[] {
+  return curriculum === 'hsk30' ? CHINESE_HSK30_DATA : CHINESE_XIEHANZI_DATA;
+}
 
 export const VOCABULARY_DATA: Record<Language, WordItem[]> = {
   zh: CHINESE_HSK_DATA,

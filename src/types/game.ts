@@ -25,7 +25,35 @@ export type GameMode = 'arcade' | 'practice';
 
 export type DisplayStyle = 'pinyin_to_hanzi' | 'native_first' | 'latin_first';
 
-export type HskLevel = 'HSK 1' | 'HSK 2' | 'HSK 3' | 'HSK 4' | 'HSK 5' | 'HSK 6' | 'Đời sống' | 'Tất cả';
+export type VocabSource = 'system' | 'custom' | 'both';
+
+export type CurriculumType = 'xiehanzi' | 'hsk30';
+
+export type HskLevel = 'HSK 1' | 'HSK 2' | 'HSK 3' | 'HSK 4' | 'HSK 5' | 'HSK 6' | 'Đời sống' | 'Tất cả' | 'Tự nạp';
+
+export interface LessonItem {
+  id: string;               // e.g. "hsk1-b01"
+  stt?: number;
+  hskLevel: HskLevel | string;
+  lessonNumber: string;     // "Bài 01"
+  titleVi: string;          // "Xin chào"
+  titleZh: string;          // "你好"
+  pinyin?: string;          // "Nǐ hǎo"
+  topic: string;            // "Chào hỏi & Giao tiếp cơ bản"
+  wordCount: number;        // Số từ
+  url?: string;             // Link XieHanzi
+}
+
+export interface TopicItem {
+  id: string;               // e.g. "topic-1"
+  stt?: number;
+  hskLevel: HskLevel | string;
+  topicName: string;        // "Chào hỏi & Giao tiếp cơ bản"
+  lessonsText: string;      // "Bài 01: Xin chào (你好)"
+  lessonCount: number;      // 1
+  wordCount: number;        // 6
+  url?: string;             // Link XieHanzi
+}
 
 export interface WordItem {
   id: string;
@@ -42,6 +70,14 @@ export interface WordItem {
   category?: string;        // "Chào hỏi", "Ẩm thực", "Mua sắm", hoặc Từ loại
   meaningEn?: string;       // Nghĩa tiếng Anh
   stt?: number;             // Số thứ tự trong cấp độ
+
+  // Metadata bài học từ Giáo trình chuẩn XieHanzi 146 bài
+  lessonNumber?: string;    // "Bài 01"
+  lessonTitleVi?: string;   // "Xin chào"
+  lessonTitleZh?: string;   // "你好"
+  topic?: string;           // "Chào hỏi & Giao tiếp cơ bản"
+  sttInLesson?: number;     // 1, 2, ...
+  lessonUrl?: string;       // "https://xiehanzi.com/thu-vien-hsk/hsk-1/bai-hoc/bai-1-xin-chao/"
 }
 
 export interface WordSyllable {
@@ -149,8 +185,12 @@ export interface GameSettings {
   playMode: GamePlayMode;      // 4 Chế độ cốt lõi: Nhìn Chữ | Nhớ Nghĩa | Nghe Bắt Âm | Điền Khuyết
   clozeStyle: ClozeStyle;      // Dùng cho chế độ Điền Khuyết (cloze_practice)
   spawnMode: SpawnMode;        // 'single' vs 'multi'
-  gameMode: GameMode;          // 'arcade' vs 'practice'
+  gameMode: GameMode;          // 'arcade' (Chiến binh, máu, boss) vs 'practice' (Zen thư giãn, ko Game Over)
+  vocabSource?: VocabSource;   // 'system' (Mặc định) | 'custom' (Bộ từ của tôi) | 'both' (Kết hợp)
+  curriculum?: CurriculumType; // 'xiehanzi' (Giáo trình 146 bài) | 'hsk30' (HSK 3.0)
   selectedHsk: HskLevel;       // HSK 1 - 6 hoặc Đời sống
+  selectedLessonNumber?: string; // 'all' hoặc "Bài 01", "Bài 02"...
+  selectedTopic?: string;      // 'all' hoặc tên chủ đề
   requireTones: boolean;       // Gõ số thanh điệu (ni3hao3) hay pinyin thường (nihao)
   showHints: boolean;          // BẬT / TẮT GỢI Ý TOÀN PHẦN (Mặc định: TẮT để không tự ý hiện gợi ý)
   showTypingGuide: boolean;    // Hiện chữ cái tiếp theo cần gõ (Mặc định: TẮT)

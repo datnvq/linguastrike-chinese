@@ -4,12 +4,13 @@ export type InputMode = 'latin' | 'ime';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
-// 4 CHẾ ĐỘ HỌC TẬP CHUYÊN SÂU
+// CÁC CHẾ ĐỘ HỌC TẬP CHUYÊN SÂU (GIÁC QUAN NÃO BỘ)
 export type GamePlayMode = 
   | 'hanzi_to_pinyin'     // 1. Nhìn Chữ Hán ➔ Gõ Pinyin (Nhận diện mặt chữ)
   | 'meaning_to_pinyin'   // 2. Nhớ Nghĩa Tiếng Việt ➔ Gõ Pinyin (Phản xạ giao tiếp)
   | 'listening_to_pinyin' // 3. Nghe Bắt Âm ➔ Gõ Pinyin (Giải mã âm thanh / Luyện tai)
-  | 'cloze_practice';     // 4. Luyện Từ Mới (Điền khuyết Pinyin / Ôn từ)
+  | 'cloze_practice'      // 4. Luyện Từ Mới (Điền khuyết Pinyin / Ôn từ)
+  | 'random_mix';         // 5. Thử Thách Hỗn Hợp (Ngẫu nhiên xoay vòng 3 giác quan)
 
 export type ClozeStyle = 
   | 'reveal_on_type'  // Lúc đầu ẩn toàn bộ (_ _   _ _ _), gõ được chữ nào làm hiện chữ đó ra! (Mặc định)
@@ -21,15 +22,20 @@ export type ClozeStyle =
 
 export type SpawnMode = 'single' | 'multi';
 
-export type GameMode = 'arcade' | 'practice';
+// CÁC PHONG CÁCH CHƠI / LUẬT CHƠI (ÁP LỰC & THỬ THÁCH)
+export type GameMode = 
+  | 'practice'    // ☕ Zen Thư Giãn (Không Game Over, không trừ máu, học nhàn nhã)
+  | 'arcade'      // 🚀 Chiến Binh (Thanh máu HP, Combo, Fever Mode x2, Đấu Boss)
+  | 'time_attack' // ⏱️ Đua Thời Gian (60s đếm ngược, gõ đúng +2s, combo +5s)
+  | 'boss_rush';  // 🥊 Đại Chiến Trùm (Đối đầu liên hoàn các câu giao tiếp đầy đủ)
 
 export type DisplayStyle = 'pinyin_to_hanzi' | 'native_first' | 'latin_first';
 
 export type VocabSource = 'system' | 'custom' | 'both';
 
-export type CurriculumType = 'xiehanzi' | 'hsk30';
+export type CurriculumType = 'hsk2' | 'hsk3';
 
-export type HskLevel = 'HSK 1' | 'HSK 2' | 'HSK 3' | 'HSK 4' | 'HSK 5' | 'HSK 6' | 'Đời sống' | 'Tất cả' | 'Tự nạp';
+export type HskLevel = 'HSK 1' | 'HSK 2' | 'HSK 3' | 'HSK 4' | 'HSK 5' | 'HSK 6' | 'HSK 7-9' | 'Đời sống' | 'Tất cả' | 'Tự nạp';
 
 export interface LessonItem {
   id: string;               // e.g. "hsk1-b01"
@@ -106,6 +112,7 @@ export interface ActiveWord {
   targetLetters: string[];      // Chuỗi ký tự player cần gõ
   typedCount: number;           // Số ký tự đã gõ đúng
   syllables?: WordSyllable[];   // Bóc tách từng âm tiết và Hán tự tương ứng
+  activePlayMode?: GamePlayMode; // Chế độ hiển thị riêng của từ này (dùng cho random_mix)
   
   isRevealingHanzi: boolean;    // Đang trong 0.5s bừng sáng mặt chữ Hán
   revealStartTime: number;
@@ -182,15 +189,18 @@ export interface FloatingText {
 export interface GameSettings {
   language: Language;
   inputMode: InputMode;
-  playMode: GamePlayMode;      // 4 Chế độ cốt lõi: Nhìn Chữ | Nhớ Nghĩa | Nghe Bắt Âm | Điền Khuyết
+  playMode: GamePlayMode;      // 5 Chế độ: Nhìn Chữ | Nhớ Nghĩa | Nghe Bắt Âm | Điền Khuyết | Hỗn Hợp
   clozeStyle: ClozeStyle;      // Dùng cho chế độ Điền Khuyết (cloze_practice)
   spawnMode: SpawnMode;        // 'single' vs 'multi'
-  gameMode: GameMode;          // 'arcade' (Chiến binh, máu, boss) vs 'practice' (Zen thư giãn, ko Game Over)
+  gameMode: GameMode;          // 'practice' (Zen) | 'arcade' | 'time_attack' | 'boss_rush'
   vocabSource?: VocabSource;   // 'system' (Mặc định) | 'custom' (Bộ từ của tôi) | 'both' (Kết hợp)
-  curriculum?: CurriculumType; // 'xiehanzi' (Giáo trình 146 bài) | 'hsk30' (HSK 3.0)
-  selectedHsk: HskLevel;       // HSK 1 - 6 hoặc Đời sống
-  selectedLessonNumber?: string; // 'all' hoặc "Bài 01", "Bài 02"...
-  selectedTopic?: string;      // 'all' hoặc tên chủ đề
+  curriculum?: CurriculumType; // 'hsk2' (Giáo trình 146 bài) | 'hsk3' (HSK 3.0)
+  selectedHsk: HskLevel;       // HSK 1 - 6, HSK 7-9, Đời sống, Tất cả
+  selectedLessonNumbers?: string[]; // Danh sách nhiều bài học cùng lúc (VD: ['Bài 01', 'Bài 02', 'Bài 03'])
+  selectedLessonNumber?: string; // Tương thích chọn 1 bài đơn
+  selectedTopics?: string[];     // Danh sách nhiều chủ đề cùng lúc
+  selectedTopic?: string;        // Tương thích chọn 1 chủ đề đơn
+  timeLimitSeconds?: number;     // Dành cho chế độ time_attack (mặc định 60s)
   requireTones: boolean;       // Gõ số thanh điệu (ni3hao3) hay pinyin thường (nihao)
   showHints: boolean;          // BẬT / TẮT GỢI Ý TOÀN PHẦN (Mặc định: TẮT để không tự ý hiện gợi ý)
   showTypingGuide: boolean;    // Hiện chữ cái tiếp theo cần gõ (Mặc định: TẮT)
@@ -223,4 +233,6 @@ export interface GameStats {
   wpm?: number;                // Tốc độ gõ WPM
   isFeverMode?: boolean;       // Bật Fever Mode khi combo cao
   isFrozen?: boolean;          // Trạng thái đóng băng thời gian
+  timeLeft?: number;           // Đếm ngược giây cho time_attack
+  timeBonusText?: string;      // Hiển thị "+2s", "+5s" bay lên
 }

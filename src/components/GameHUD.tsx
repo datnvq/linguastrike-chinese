@@ -10,7 +10,9 @@ import {
   BookOpen,
   Zap,
   Flame,
-  Snowflake
+  Snowflake,
+  Timer,
+  Swords
 } from 'lucide-react';
 import type { GameStats, Language, GameMode, SpawnMode, HskLevel, VocabSource } from '../types/game';
 
@@ -23,6 +25,7 @@ interface GameHUDProps {
   spawnMode: SpawnMode;
   vocabSource?: VocabSource;
   selectedHsk: HskLevel;
+  selectedLessonNumbers?: string[];
   selectedLessonNumber?: string;
   selectedTopic?: string;
   isPaused: boolean;
@@ -43,6 +46,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   gameMode,
   vocabSource,
   selectedHsk,
+  selectedLessonNumbers,
   selectedLessonNumber,
   selectedTopic,
   isPaused,
@@ -75,7 +79,27 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           <Home className="w-4 h-4" />
         </button>
 
-        {gameMode === 'arcade' ? (
+        {gameMode === 'time_attack' ? (
+          <div className="bg-[#1c1a17]/95 border border-amber-500/50 rounded-xl px-3 py-1.5 flex items-center gap-2 shadow-md">
+            <Timer className="w-4 h-4 text-amber-400 animate-pulse" />
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] text-stone-400 font-mono uppercase tracking-wider">THỜI GIAN</span>
+              <span className={`text-sm font-mono font-bold ${(stats.timeLeft ?? 60) <= 10 ? 'text-rose-400 animate-ping' : 'text-amber-300'}`}>
+                {stats.timeLeft ?? 60}s {stats.timeBonusText && <span className="text-emerald-400 text-xs ml-1 font-bold animate-bounce">{stats.timeBonusText}</span>}
+              </span>
+            </div>
+          </div>
+        ) : gameMode === 'boss_rush' ? (
+          <div className="bg-[#1c1a17]/95 border border-rose-500/50 rounded-xl px-3 py-1.5 flex items-center gap-2 shadow-md">
+            <Swords className="w-4 h-4 text-rose-400 animate-bounce" />
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] text-stone-400 font-mono uppercase tracking-wider">ĐẠI CHIẾN TRÙM</span>
+              <span className="text-xs font-mono font-bold text-rose-300">
+                {stats.bossesDefeated} Boss hạ gục
+              </span>
+            </div>
+          </div>
+        ) : gameMode === 'arcade' ? (
           <div className="bg-[#1c1a17]/95 border border-[#353028] rounded-xl px-3 py-1.5 flex items-center gap-2.5 shadow-md">
             <Heart className={`w-4 h-4 ${isLowHp ? 'text-rose-500 fill-rose-500 animate-pulse' : 'text-rose-400 fill-rose-400/80'}`} />
             <div className="flex flex-col">
@@ -134,8 +158,12 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           ) : (
             <span>
               {selectedHsk}
-              {selectedLessonNumber && selectedLessonNumber !== 'all' ? ` • ${selectedLessonNumber}` : ''}
-              {!selectedLessonNumber || selectedLessonNumber === 'all'
+              {selectedLessonNumbers && selectedLessonNumbers.length > 1
+                ? ` • ${selectedLessonNumbers.length} bài học`
+                : selectedLessonNumber && selectedLessonNumber !== 'all'
+                ? ` • ${selectedLessonNumber}`
+                : ''}
+              {(!selectedLessonNumbers || selectedLessonNumbers.length === 0) && (!selectedLessonNumber || selectedLessonNumber === 'all')
                 ? selectedTopic && selectedTopic !== 'all'
                   ? ` • ${selectedTopic}`
                   : ''

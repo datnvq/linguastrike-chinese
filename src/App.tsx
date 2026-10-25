@@ -14,9 +14,13 @@ import {
   BookMarked,
   Coffee,
   Zap,
-  ExternalLink,
+  Timer,
+  Swords,
+  Shuffle,
   Layers,
-  RotateCcw
+  RotateCcw,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import {
   CHINESE_HSK_DATA,
@@ -26,7 +30,7 @@ import {
   getTopicsByLevel
 } from './data/vocabData';
 import { soundManager } from './game/SoundManager';
-import type { GameSettings, HskLevel, GamePlayMode, WordItem } from './types/game';
+import type { GameSettings, HskLevel, GamePlayMode, WordItem, GameMode } from './types/game';
 
 export const App: React.FC = () => {
   const [hasStarted, setHasStarted] = useState<boolean>(false);
@@ -63,13 +67,11 @@ export const App: React.FC = () => {
     }
   };
 
-  // 1. Ghi đè file mới luôn khi add file
   const handleSetCustomWords = (newWords: WordItem[]) => {
     setCustomWords(newWords);
     saveCustomWordsToStorage(newWords);
   };
 
-  // 2. Thêm từ mới hoặc sửa từ
   const handleSaveCustomWord = (word: WordItem, targetIndex?: number) => {
     setCustomWords(prev => {
       let updated: WordItem[];
@@ -90,7 +92,6 @@ export const App: React.FC = () => {
     });
   };
 
-  // 3. Xử lý khi thêm danh sách từ
   const handleAddCustomWords = (newWords: WordItem[]) => {
     setCustomWords(prev => {
       const updated = [...prev];
@@ -107,7 +108,6 @@ export const App: React.FC = () => {
     });
   };
 
-  // 4. Xóa 1 từ cụ thể
   const handleDeleteCustomWord = (wordId: string) => {
     setCustomWords(prev => {
       const updated = prev.filter(w => w.id !== wordId);
@@ -116,7 +116,6 @@ export const App: React.FC = () => {
     });
   };
 
-  // 5. Xóa toàn bộ
   const handleClearCustomWords = () => {
     setCustomWords([]);
     try {
@@ -134,10 +133,13 @@ export const App: React.FC = () => {
     spawnMode: 'single',
     gameMode: 'practice', // Mặc định chế độ Zen thư giãn không áp lực
     vocabSource: 'system',
-    curriculum: 'xiehanzi', // Giáo trình Chuẩn XieHanzi 146 bài
+    curriculum: 'hsk2',   // 'hsk2' (XieHanzi 146 bài) | 'hsk3' (HSK 3.0 Chuẩn mới)
     selectedHsk: 'HSK 1',
+    selectedLessonNumbers: [], // Mảng nhiều bài học được chọn cùng lúc
     selectedLessonNumber: 'all',
+    selectedTopics: [],
     selectedTopic: 'all',
+    timeLimitSeconds: 60,
     requireTones: false,
     showHints: false,
     showTypingGuide: false,
@@ -153,6 +155,8 @@ export const App: React.FC = () => {
     ttsRate: 0.95,
   });
 
+  const isHsk2 = (configuredSettings.curriculum || 'hsk2') === 'hsk2';
+
   // Dynamic system counts
   const systemCounts = useMemo(() => {
     const counts: Record<string, number> = {
@@ -162,16 +166,17 @@ export const App: React.FC = () => {
       'HSK 4': 0,
       'HSK 5': 0,
       'HSK 6': 0,
+      'HSK 7-9': 0,
       'Đời sống': 0,
     };
-    const activeData = configuredSettings.curriculum === 'hsk30' ? CHINESE_HSK30_DATA : CHINESE_XIEHANZI_DATA;
+    const activeData = isHsk2 ? CHINESE_XIEHANZI_DATA : CHINESE_HSK30_DATA;
     activeData.forEach(w => {
       if (w.hskLevel && counts[w.hskLevel] !== undefined) {
         counts[w.hskLevel]++;
       }
     });
     return counts;
-  }, [configuredSettings.curriculum]);
+  }, [isHsk2]);
 
   const customCounts = useMemo(() => {
     const counts: Record<string, number> = {
@@ -181,6 +186,7 @@ export const App: React.FC = () => {
       'HSK 4': 0,
       'HSK 5': 0,
       'HSK 6': 0,
+      'HSK 7-9': 0,
       'Đời sống': 0,
     };
     customWords.forEach(w => {
@@ -196,9 +202,13 @@ export const App: React.FC = () => {
 
   const activeSource = configuredSettings.vocabSource || 'system';
 
+  // HSK Pills dynamically adjusted by curriculum
   const hskPills = useMemo(() => {
-    const levels: HskLevel[] = ['Tất cả', 'HSK 1', 'HSK 2', 'HSK 3', 'HSK 4', 'HSK 5', 'HSK 6', 'Đời sống'];
-    const activeData = configuredSettings.curriculum === 'hsk30' ? CHINESE_HSK30_DATA : CHINESE_XIEHANZI_DATA;
+    const levels: HskLevel[] = isHsk2
+      ? ['Tất cả', 'HSK 1', 'HSK 2', 'HSK 3', 'HSK 4', 'HSK 5', 'HSK 6', 'Đời sống']
+      : ['Tất cả', 'HSK 1', 'HSK 2', 'HSK 3', 'HSK 4', 'HSK 5', 'HSK 6', 'HSK 7-9'];
+
+    const activeData = isHsk2 ? CHINESE_XIEHANZI_DATA : CHINESE_HSK30_DATA;
 
     return levels.map(lvl => {
       let countNum = 0;
@@ -220,25 +230,70 @@ export const App: React.FC = () => {
         count: `${countNum.toLocaleString()} từ`,
       };
     });
-  }, [activeSource, customWords.length, customCounts, systemCounts, configuredSettings.curriculum]);
+  }, [activeSource, customWords.length, customCounts, systemCounts, isHsk2]);
 
   // Lessons of currently selected HSK level (Zero hardcoding)
   const availableLessons = useMemo(() => {
+    if (!isHsk2) return [];
     return getLessonsByLevel(configuredSettings.selectedHsk);
-  }, [configuredSettings.selectedHsk]);
+  }, [isHsk2, configuredSettings.selectedHsk]);
 
   // Topics of currently selected HSK level (Zero hardcoding)
   const availableTopics = useMemo(() => {
+    if (!isHsk2) return [];
     return getTopicsByLevel(configuredSettings.selectedHsk);
-  }, [configuredSettings.selectedHsk]);
+  }, [isHsk2, configuredSettings.selectedHsk]);
 
-  // Currently active lesson metadata
-  const currentSelectedLesson = useMemo(() => {
-    if (!configuredSettings.selectedLessonNumber || configuredSettings.selectedLessonNumber === 'all') {
-      return null;
+  // Handle Multi-Lesson Toggle
+  const handleToggleLesson = (lessonNum: string) => {
+    setConfiguredSettings(prev => {
+      const current = prev.selectedLessonNumbers || [];
+      let updated: string[];
+      if (current.includes(lessonNum)) {
+        updated = current.filter(l => l !== lessonNum);
+      } else {
+        updated = [...current, lessonNum];
+      }
+      return {
+        ...prev,
+        selectedLessonNumbers: updated,
+        selectedLessonNumber: updated.length === 1 ? updated[0] : updated.length === 0 ? 'all' : 'multi',
+        selectedTopic: 'all',
+      };
+    });
+  };
+
+  // Quick range helper: select from startIdx to endIdx
+  const handleSelectLessonRange = (startNum: number, endNum: number) => {
+    const selected: string[] = [];
+    for (let i = startNum; i <= endNum; i++) {
+      const match = availableLessons[i - 1];
+      if (match) selected.push(match.lessonNumber);
     }
-    return availableLessons.find(l => l.lessonNumber === configuredSettings.selectedLessonNumber) || null;
-  }, [availableLessons, configuredSettings.selectedLessonNumber]);
+    setConfiguredSettings(prev => ({
+      ...prev,
+      selectedLessonNumbers: selected,
+      selectedLessonNumber: selected.length === 1 ? selected[0] : 'multi',
+      selectedTopic: 'all',
+    }));
+  };
+
+  const handleSelectAllLessons = () => {
+    setConfiguredSettings(prev => ({
+      ...prev,
+      selectedLessonNumbers: availableLessons.map(l => l.lessonNumber),
+      selectedLessonNumber: 'all',
+      selectedTopic: 'all',
+    }));
+  };
+
+  const handleClearSelectedLessons = () => {
+    setConfiguredSettings(prev => ({
+      ...prev,
+      selectedLessonNumbers: [],
+      selectedLessonNumber: 'all',
+    }));
+  };
 
   // Calculate dynamic words ready for playing
   const activePoolCount = useMemo(() => {
@@ -249,10 +304,10 @@ export const App: React.FC = () => {
     if (source === 'custom') {
       baseList = customWords;
     } else if (source === 'both') {
-      const sysList = configuredSettings.curriculum === 'hsk30' ? CHINESE_HSK30_DATA : CHINESE_XIEHANZI_DATA;
+      const sysList = isHsk2 ? CHINESE_XIEHANZI_DATA : CHINESE_HSK30_DATA;
       baseList = [...sysList, ...customWords];
     } else {
-      baseList = configuredSettings.curriculum === 'hsk30' ? CHINESE_HSK30_DATA : CHINESE_XIEHANZI_DATA;
+      baseList = isHsk2 ? CHINESE_XIEHANZI_DATA : CHINESE_HSK30_DATA;
     }
 
     if (configuredSettings.selectedHsk === 'Tất cả' || configuredSettings.selectedHsk === 'Tự nạp') {
@@ -261,8 +316,9 @@ export const App: React.FC = () => {
       pool = baseList.filter(w => (w.hskLevel || 'Đời sống') === configuredSettings.selectedHsk);
     }
 
-    if (configuredSettings.selectedLessonNumber && configuredSettings.selectedLessonNumber !== 'all') {
-      const lessonFiltered = pool.filter(w => w.lessonNumber === configuredSettings.selectedLessonNumber);
+    const selLessons = configuredSettings.selectedLessonNumbers || [];
+    if (selLessons.length > 0) {
+      const lessonFiltered = pool.filter(w => w.lessonNumber && selLessons.includes(w.lessonNumber));
       if (lessonFiltered.length > 0) pool = lessonFiltered;
     } else if (configuredSettings.selectedTopic && configuredSettings.selectedTopic !== 'all') {
       const topicFiltered = pool.filter(w => w.topic === configuredSettings.selectedTopic);
@@ -272,10 +328,10 @@ export const App: React.FC = () => {
     return pool.length;
   }, [
     configuredSettings.vocabSource,
-    configuredSettings.curriculum,
     configuredSettings.selectedHsk,
-    configuredSettings.selectedLessonNumber,
+    configuredSettings.selectedLessonNumbers,
     configuredSettings.selectedTopic,
+    isHsk2,
     customWords,
   ]);
 
@@ -308,6 +364,54 @@ export const App: React.FC = () => {
       icon: <BookMarked className="w-4 h-4 text-emerald-400" />,
       name: 'Luyện từ mới (Điền khuyết)',
       desc: 'Hiện chữ Hán kèm Pinyin khuyết chữ cái. Phù hợp khi mới học từ.',
+    },
+    {
+      id: 'random_mix',
+      icon: <Shuffle className="w-4 h-4 text-purple-400" />,
+      name: 'Thử Thách Hỗn Hợp (Mix)',
+      desc: 'Mỗi từ rơi ngẫu nhiên đổi kiểu: nhìn chữ, nghe âm, hoặc nhớ nghĩa!',
+    },
+  ];
+
+  const gameModeOptions: {
+    id: GameMode;
+    icon: React.ReactNode;
+    name: string;
+    badge: string;
+    desc: string;
+    colorClass: string;
+  }[] = [
+    {
+      id: 'practice',
+      icon: <Coffee className="w-4 h-4 text-emerald-400" />,
+      name: '☕ Zen Thư Giãn',
+      badge: 'KHÔNG ÁP LỰC',
+      desc: 'Không Game Over, không trừ máu. Gõ sai được thử lại, nghe đọc mẫu tự do.',
+      colorClass: 'border-emerald-500 text-emerald-300 bg-emerald-500/10',
+    },
+    {
+      id: 'arcade',
+      icon: <Zap className="w-4 h-4 text-amber-400" />,
+      name: '🚀 Arcade Chiến Binh',
+      badge: 'KINH ĐIỂN',
+      desc: 'Thanh Máu (HP), tính chuỗi Combo, nộ Fever Mode x2, đấu Trùm Boss ghép câu.',
+      colorClass: 'border-amber-500 text-amber-300 bg-amber-500/10',
+    },
+    {
+      id: 'time_attack',
+      icon: <Timer className="w-4 h-4 text-cyan-400" />,
+      name: '⏱️ Đua Thời Gian (60s)',
+      badge: 'SINH TỒN',
+      desc: 'Đếm ngược 60 giây! Gõ đúng +2s, chuỗi combo +5s. Xem bạn trụ được bao lâu!',
+      colorClass: 'border-cyan-500 text-cyan-300 bg-cyan-500/10',
+    },
+    {
+      id: 'boss_rush',
+      icon: <Swords className="w-4 h-4 text-rose-400" />,
+      name: '🥊 Đại Chiến Trùm',
+      badge: 'GHÉP CÂU',
+      desc: 'Chỉ xuất hiện Trùm mang toàn bộ câu thoại giao tiếp ngữ pháp của các bài học!',
+      colorClass: 'border-rose-500 text-rose-300 bg-rose-500/10',
     },
   ];
 
@@ -368,17 +472,39 @@ export const App: React.FC = () => {
               <span className="font-hanzi text-amber-500 font-bold text-sm border border-amber-500/40 px-2 py-0.5 rounded-lg bg-amber-500/10">
                 擊字
               </span>
-              <span className="text-[11px] px-2.5 py-0.5 rounded-md bg-[#25221d] border border-[#353028] text-stone-300 font-mono flex items-center gap-1">
-                <span>📚 146 Bài học HSK Chuẩn</span>
-              </span>
+
+              {/* Curriculum Mode Switcher Badge */}
+              <div className="flex items-center bg-[#141311] border border-[#353028] rounded-lg p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setConfiguredSettings(prev => ({ ...prev, curriculum: 'hsk2', selectedLessonNumbers: [] }))}
+                  className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                    isHsk2 ? 'bg-amber-500 text-stone-950 shadow-sm' : 'text-stone-400 hover:text-white'
+                  }`}
+                >
+                  📘 HSK 2.0 (146 Bài)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfiguredSettings(prev => ({ ...prev, curriculum: 'hsk3', selectedLessonNumbers: [] }))}
+                  className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                    !isHsk2 ? 'bg-amber-500 text-stone-950 shadow-sm' : 'text-stone-400 hover:text-white'
+                  }`}
+                >
+                  📙 HSK 3.0 (2025)
+                </button>
+              </div>
+
               {customWords.length > 0 && (
-                <span className="text-[11px] px-2.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono font-bold animate-pulse">
+                <span className="text-[11px] px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono font-bold animate-pulse">
                   ⭐ {customWords.length.toLocaleString()} từ của tôi
                 </span>
               )}
             </div>
             <p className="text-xs text-stone-400 mt-1">
-              Luyện gõ Pinyin theo từng bài học giáo trình, rèn luyện 4 giác quan và chơi game thư giãn
+              {isHsk2
+                ? 'Luyện tập theo từng bài học hoặc ôn nhiều bài cùng lúc theo Giáo trình Chuẩn XieHanzi'
+                : 'Luyện tập theo Khung chuẩn HSK 3.0 thế hệ mới (hỗ trợ cấp độ 1 đến 9)'}
             </p>
           </div>
 
@@ -421,115 +547,43 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* PHẦN 1: PHONG CÁCH TRẢI NGHIỆM (ZEN THƯ GIÃN vs ARCADE CHIẾN BINH) */}
+        {/* 1. CHỌN PHONG CÁCH CHƠI (4 CHẾ ĐỘ THỬ THÁCH) */}
         <div className="mb-3.5 text-left">
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-display font-bold uppercase tracking-wider text-stone-400">
-              1. Phong cách trải nghiệm (Linh động, Không gò bó):
+              1. Phong cách chơi & Thử thách:
             </label>
             <span className="text-[11px] font-mono font-bold text-amber-400">
-              {configuredSettings.gameMode === 'practice' ? '☕ Zen: Học chậm chắc, không áp lực' : '🚀 Arcade: Đua điểm, đấu Boss'}
+              {gameModeOptions.find(g => g.id === configuredSettings.gameMode)?.name}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setConfiguredSettings(prev => ({ ...prev, gameMode: 'practice' }))}
-              className={`p-3 rounded-xl border text-left transition-all cursor-pointer relative ${
-                configuredSettings.gameMode === 'practice'
-                  ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-md ring-1 ring-emerald-500/40'
-                  : 'bg-[#151412] border-[#2c2822] text-stone-400 hover:border-[#443e35]'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-lg border ${configuredSettings.gameMode === 'practice' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'bg-[#1e1b17] border-[#2c2822] text-stone-400'}`}>
-                    <Coffee className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="font-bold text-xs sm:text-sm text-emerald-300">
-                      ☕ Thư Giãn (Zen Mode)
-                    </span>
-                    <span className="ml-2 text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400">
-                      KHUYÊN DÙNG
-                    </span>
-                  </div>
-                </div>
-                {configuredSettings.gameMode === 'practice' && (
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500 text-black">
-                    ACTIVE
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-stone-300 leading-relaxed pl-8">
-                <strong>Không Game Over, không trừ máu.</strong> Chữ rơi thong thả, gõ sai được gõ lại, nghe phát âm chuẩn và tự động lặp lại từ chưa nhớ.
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setConfiguredSettings(prev => ({ ...prev, gameMode: 'arcade' }))}
-              className={`p-3 rounded-xl border text-left transition-all cursor-pointer relative ${
-                configuredSettings.gameMode === 'arcade'
-                  ? 'bg-amber-500/10 border-amber-500 text-white shadow-md ring-1 ring-amber-500/40'
-                  : 'bg-[#151412] border-[#2c2822] text-stone-400 hover:border-[#443e35]'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-lg border ${configuredSettings.gameMode === 'arcade' ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-[#1e1b17] border-[#2c2822] text-stone-400'}`}>
-                    <Zap className="w-4 h-4" />
-                  </div>
-                  <span className="font-bold text-xs sm:text-sm text-amber-300">
-                    🚀 Chiến Binh (Arcade Mode)
-                  </span>
-                </div>
-                {configuredSettings.gameMode === 'arcade' && (
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500 text-black">
-                    ACTIVE
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-stone-400 leading-relaxed pl-8">
-                Có thanh Máu (HP), tính chuỗi Combo, nộ <strong>Fever Mode x2 điểm</strong> và đối đầu <strong>Trùm Boss</strong> mang câu giao tiếp của bài học!
-              </p>
-            </button>
-          </div>
-        </div>
-
-        {/* PHẦN 2: CHẾ ĐỘ GIÁC QUAN LUYỆN TẬP */}
-        <div className="mb-3.5 text-left">
-          <label className="text-xs font-display font-bold uppercase tracking-wider text-stone-400 block mb-1.5">
-            2. Mục tiêu rèn luyện (4 Giác quan não bộ):
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {playModeOptions.map(m => {
-              const isSelected = configuredSettings.playMode === m.id;
+            {gameModeOptions.map(m => {
+              const isSelected = configuredSettings.gameMode === m.id;
               return (
                 <button
                   key={m.id}
-                  onClick={() => setConfiguredSettings(prev => ({ ...prev, playMode: m.id }))}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer relative ${
+                  type="button"
+                  onClick={() => setConfiguredSettings(prev => ({ ...prev, gameMode: m.id }))}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative ${
                     isSelected
-                      ? 'bg-[#25211c] border-amber-500 text-white shadow-md'
-                      : 'bg-[#151412] border-[#2c2822] text-stone-300 hover:border-[#443e35]'
+                      ? `${m.colorClass} shadow-md ring-1 ring-amber-500/40 font-bold`
+                      : 'bg-[#151412] border-[#2c2822] text-stone-400 hover:border-[#443e35]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-0.5">
                     <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg border ${isSelected ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-[#1e1b17] border-[#2c2822] text-stone-400'}`}>
+                      <div className={`p-1.5 rounded-lg border ${isSelected ? 'bg-black/30 border-current' : 'bg-[#1e1b17] border-[#2c2822]'}`}>
                         {m.icon}
                       </div>
-                      <span className="font-bold text-xs sm:text-sm text-white tracking-wide">
+                      <span className="font-bold text-xs sm:text-sm text-white">
                         {m.name}
                       </span>
                     </div>
-                    {isSelected && (
-                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500 text-black tracking-wider">
-                        ACTIVE
-                      </span>
-                    )}
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/40 text-stone-300">
+                      {m.badge}
+                    </span>
                   </div>
                   <p className="text-[11px] text-stone-400 leading-relaxed pl-8">
                     {m.desc}
@@ -540,23 +594,58 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* PHẦN 3: NGUỒN TỪ & CẤP ĐỘ HSK */}
+        {/* 2. CHỌN MỤC TIÊU GIÁC QUAN RÈN LUYỆN */}
+        <div className="mb-3.5 text-left">
+          <label className="text-xs font-display font-bold uppercase tracking-wider text-stone-400 block mb-1.5">
+            2. Mục tiêu rèn luyện (5 Giác quan não bộ):
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {playModeOptions.map(m => {
+              const isSelected = configuredSettings.playMode === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setConfiguredSettings(prev => ({ ...prev, playMode: m.id }))}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative ${
+                    isSelected
+                      ? 'bg-[#25211c] border-amber-500 text-white shadow-md'
+                      : 'bg-[#151412] border-[#2c2822] text-stone-300 hover:border-[#443e35]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`p-1.5 rounded-lg border ${isSelected ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-[#1e1b17] border-[#2c2822] text-stone-400'}`}>
+                      {m.icon}
+                    </div>
+                    <span className="font-bold text-xs text-white tracking-wide">
+                      {m.name}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-stone-400 leading-snug">
+                    {m.desc}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 3. NGUỒN TỪ & CẤP ĐỘ HSK */}
         <div className="mb-3.5 text-left">
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-display font-bold uppercase tracking-wider text-stone-400">
-              3. Nguồn từ vựng & Cấp độ:
+              3. Nguồn từ vựng & Cấp độ ({isHsk2 ? 'HSK 2.0' : 'HSK 3.0'}):
             </label>
             <span className="text-[11px] text-amber-400 font-medium">
               {configuredSettings.vocabSource === 'custom'
-                ? `Đang chọn: Bộ từ của tôi (${customWords.length} từ)`
+                ? `Bộ từ của tôi (${customWords.length} từ)`
                 : configuredSettings.vocabSource === 'both'
-                ? `Đang chọn: Học kết hợp (${(CHINESE_HSK_DATA.length + customWords.length).toLocaleString()} từ)`
-                : `Đang chọn: Giáo trình HSK (${CHINESE_HSK_DATA.length.toLocaleString()} từ)`}
+                ? `Học kết hợp (${(CHINESE_HSK_DATA.length + customWords.length).toLocaleString()} từ)`
+                : `Hệ thống (${(isHsk2 ? CHINESE_XIEHANZI_DATA : CHINESE_HSK30_DATA).length.toLocaleString()} từ)`}
             </span>
           </div>
 
           {/* 3 Source Options */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
             <button
               type="button"
               onClick={() => setConfiguredSettings(prev => ({ ...prev, vocabSource: 'system' }))}
@@ -567,10 +656,16 @@ export const App: React.FC = () => {
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="font-bold text-xs text-white">🏛️ Giáo trình HSK</span>
-                <span className="text-[10px] font-mono text-stone-400">{CHINESE_HSK_DATA.length.toLocaleString()} từ</span>
+                <span className="font-bold text-xs text-white">
+                  {isHsk2 ? '🏛️ Giáo trình HSK' : '🏛️ HSK 3.0 Mới'}
+                </span>
+                <span className="text-[10px] font-mono text-stone-400">
+                  {(isHsk2 ? CHINESE_XIEHANZI_DATA : CHINESE_HSK30_DATA).length.toLocaleString()} từ
+                </span>
               </div>
-              <p className="text-[10px] text-stone-400 mt-0.5">146 Bài học chuẩn XieHanzi</p>
+              <p className="text-[10px] text-stone-400 mt-0.5">
+                {isHsk2 ? '146 Bài học chuẩn XieHanzi' : 'Khung chuẩn mới 9 bậc'}
+              </p>
             </button>
 
             <button
@@ -611,10 +706,10 @@ export const App: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="font-bold text-xs text-white">🔄 Học kết hợp</span>
                 <span className="text-[10px] font-mono text-stone-400">
-                  {(CHINESE_HSK_DATA.length + customWords.length).toLocaleString()} từ
+                  {((isHsk2 ? CHINESE_XIEHANZI_DATA : CHINESE_HSK30_DATA).length + customWords.length).toLocaleString()} từ
                 </span>
               </div>
-              <p className="text-[10px] text-stone-400 mt-0.5">Trộn từ tự nạp & từ bài học</p>
+              <p className="text-[10px] text-stone-400 mt-0.5">Trộn từ tự nạp & từ hệ thống</p>
             </button>
           </div>
 
@@ -630,6 +725,7 @@ export const App: React.FC = () => {
                     setConfiguredSettings(prev => ({
                       ...prev,
                       selectedHsk: item.level,
+                      selectedLessonNumbers: [],
                       selectedLessonNumber: 'all',
                       selectedTopic: 'all',
                     }));
@@ -651,13 +747,13 @@ export const App: React.FC = () => {
             })}
           </div>
 
-          {/* PHẦN 4: CHỌN CHI TIẾT THEO BÀI HỌC (146 BÀI) HOẶC THEO CHỦ ĐỀ (DỮ LIỆU ĐỘNG 100%) */}
-          {configuredSettings.selectedHsk !== 'Đời sống' && configuredSettings.selectedHsk !== 'Tự nạp' && (
+          {/* PHẦN 4: CHỌN NHIỀU BÀI HỌC CÙNG LÚC (MULTI-LESSON) CHO HSK 2.0 */}
+          {isHsk2 && configuredSettings.selectedHsk !== 'Đời sống' && configuredSettings.selectedHsk !== 'Tự nạp' && (
             <div className="p-3 bg-[#141311] border border-[#2b2721] rounded-xl space-y-2.5 animate-in fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#24201a] pb-2">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-display font-bold uppercase tracking-wider text-amber-400">
-                    4. Lọc phạm vi học trong {configuredSettings.selectedHsk}:
+                    4. Ôn nhiều bài học cùng lúc trong {configuredSettings.selectedHsk}:
                   </span>
                 </div>
 
@@ -676,14 +772,14 @@ export const App: React.FC = () => {
                     }`}
                   >
                     <BookOpen className="w-3 h-3" />
-                    <span>Theo Bài học ({availableLessons.length})</span>
+                    <span>Nhiều bài học ({availableLessons.length})</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => {
                       setScopeSubTab('topic');
-                      setConfiguredSettings(prev => ({ ...prev, selectedLessonNumber: 'all' }));
+                      setConfiguredSettings(prev => ({ ...prev, selectedLessonNumbers: [], selectedLessonNumber: 'all' }));
                     }}
                     className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
                       scopeSubTab === 'topic'
@@ -697,76 +793,92 @@ export const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Scope Content: Theo Bài Học */}
               {scopeSubTab === 'lesson' ? (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <select
-                      value={configuredSettings.selectedLessonNumber || 'all'}
-                      onChange={e => setConfiguredSettings(prev => ({ ...prev, selectedLessonNumber: e.target.value, selectedTopic: 'all' }))}
-                      className="bg-[#1c1a17] border border-[#353028] text-stone-200 text-xs rounded-xl px-3 py-2 flex-1 focus:outline-none focus:border-amber-500 cursor-pointer"
-                    >
-                      <option value="all">
-                        -- Toàn bộ {availableLessons.length} bài học ({hskPills.find(p => p.level === configuredSettings.selectedHsk)?.count || 'toàn bộ'}) --
-                      </option>
-                      {availableLessons.map(lesson => (
-                        <option key={lesson.id} value={lesson.lessonNumber}>
-                          {lesson.lessonNumber}: {lesson.titleVi} ({lesson.titleZh}) — {lesson.wordCount} từ
-                        </option>
-                      ))}
-                    </select>
-
-                    {configuredSettings.selectedLessonNumber && configuredSettings.selectedLessonNumber !== 'all' && (
+                <div className="space-y-2">
+                  {/* Quick Preset Buttons */}
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => setConfiguredSettings(prev => ({ ...prev, selectedLessonNumber: 'all' }))}
-                        title="Học toàn bộ bài của cấp độ này"
-                        className="px-2.5 py-2 bg-[#25211c] hover:bg-[#322d26] border border-[#3a342b] text-stone-300 text-xs rounded-xl flex items-center gap-1 transition-colors cursor-pointer"
+                        onClick={handleSelectAllLessons}
+                        className="px-2 py-1 bg-[#1f1d19] hover:bg-[#2c2822] border border-[#353028] text-stone-300 hover:text-amber-300 rounded-lg text-[11px] transition-colors cursor-pointer"
                       >
-                        <RotateCcw className="w-3 h-3 text-amber-400" />
-                        <span className="hidden sm:inline">Học hết bài</span>
+                        Chọn hết ({availableLessons.length} bài)
                       </button>
-                    )}
-                  </div>
 
-                  {/* Active Lesson Detail Card */}
-                  {currentSelectedLesson && (
-                    <div className="p-3 bg-[#1b1915] border border-amber-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono font-bold text-[11px] border border-amber-500/40">
-                            {currentSelectedLesson.lessonNumber}
-                          </span>
-                          <span className="font-bold text-sm text-white font-hanzi">
-                            {currentSelectedLesson.titleZh}
-                          </span>
-                          <span className="text-amber-400 font-mono text-xs">
-                            [{currentSelectedLesson.pinyin}]
-                          </span>
-                        </div>
-                        <p className="text-stone-300">
-                          {currentSelectedLesson.titleVi}
-                        </p>
-                        <div className="flex items-center gap-2 text-[10px] text-stone-400">
-                          <span>🏷️ Chủ đề: <strong className="text-stone-300">{currentSelectedLesson.topic}</strong></span>
-                          <span>•</span>
-                          <span>🎯 Số từ: <strong className="text-amber-400 font-mono">{currentSelectedLesson.wordCount} từ</strong></span>
-                        </div>
-                      </div>
-
-                      {currentSelectedLesson.url && (
-                        <a
-                          href={currentSelectedLesson.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1.5 rounded-lg transition-colors shrink-0"
+                      {availableLessons.length >= 5 && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectLessonRange(1, 5)}
+                          className="px-2 py-1 bg-[#1f1d19] hover:bg-[#2c2822] border border-[#353028] text-stone-300 hover:text-amber-300 rounded-lg text-[11px] transition-colors cursor-pointer"
                         >
-                          <span>Xem bài giảng XieHanzi</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
+                          Bài 1 - 5
+                        </button>
+                      )}
+
+                      {availableLessons.length >= 10 && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectLessonRange(6, 10)}
+                          className="px-2 py-1 bg-[#1f1d19] hover:bg-[#2c2822] border border-[#353028] text-stone-300 hover:text-amber-300 rounded-lg text-[11px] transition-colors cursor-pointer"
+                        >
+                          Bài 6 - 10
+                        </button>
+                      )}
+
+                      {(configuredSettings.selectedLessonNumbers?.length ?? 0) > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearSelectedLessons}
+                          className="px-2 py-1 bg-[#241a18] hover:bg-[#33221f] border border-rose-500/40 text-rose-300 rounded-lg text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Bỏ chọn</span>
+                        </button>
                       )}
                     </div>
-                  )}
+
+                    <div className="text-[11px] text-amber-400 font-mono font-bold">
+                      {(configuredSettings.selectedLessonNumbers?.length ?? 0) === 0
+                        ? `Đang học toàn bộ bài (${hskPills.find(p => p.level === configuredSettings.selectedHsk)?.count || ''})`
+                        : `Đã chọn: ${configuredSettings.selectedLessonNumbers?.length} bài học (${activePoolCount} từ)`}
+                    </div>
+                  </div>
+
+                  {/* Multi-Lesson Pill Matrix */}
+                  <div className="max-h-40 overflow-y-auto custom-scrollbar border border-[#25221d] rounded-xl p-2 bg-[#121110] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5">
+                    {availableLessons.map((lesson, idx) => {
+                      const isChecked = (configuredSettings.selectedLessonNumbers || []).includes(lesson.lessonNumber);
+                      return (
+                        <button
+                          key={lesson.id}
+                          type="button"
+                          onClick={() => handleToggleLesson(lesson.lessonNumber)}
+                          className={`p-2 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-1.5 ${
+                            isChecked
+                              ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-sm font-semibold'
+                              : 'bg-[#181614] border-[#29251f] text-stone-400 hover:border-stone-600 hover:text-stone-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                            {isChecked ? (
+                              <CheckSquare className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            ) : (
+                              <Square className="w-3.5 h-3.5 text-stone-600 shrink-0" />
+                            )}
+                            <div className="truncate">
+                              <span className="font-mono text-[10px] text-stone-500 mr-1">#{idx + 1}</span>
+                              <span className="font-bold text-white text-[11px]">{lesson.lessonNumber}</span>
+                              <span className="text-[10px] text-stone-400 ml-1 truncate">({lesson.titleVi})</span>
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-black/40 text-amber-400 shrink-0">
+                            {lesson.wordCount}t
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 /* Scope Content: Theo Chủ Đề */
@@ -774,7 +886,7 @@ export const App: React.FC = () => {
                   <div className="flex items-center gap-2 mb-2">
                     <select
                       value={configuredSettings.selectedTopic || 'all'}
-                      onChange={e => setConfiguredSettings(prev => ({ ...prev, selectedTopic: e.target.value, selectedLessonNumber: 'all' }))}
+                      onChange={e => setConfiguredSettings(prev => ({ ...prev, selectedTopic: e.target.value, selectedLessonNumbers: [], selectedLessonNumber: 'all' }))}
                       className="bg-[#1c1a17] border border-[#353028] text-stone-200 text-xs rounded-xl px-3 py-2 flex-1 focus:outline-none focus:border-amber-500 cursor-pointer"
                     >
                       <option value="all">-- Tất cả {availableTopics.length} chủ đề của cấp độ này --</option>
@@ -803,57 +915,6 @@ export const App: React.FC = () => {
           )}
         </div>
 
-        {/* PHẦN 5: TÙY CHỌN BẬT / TẮT NHANH */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4 text-left">
-          <button
-            type="button"
-            onClick={() => setConfiguredSettings(prev => ({ ...prev, showHints: !prev.showHints }))}
-            className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-              configuredSettings.showHints
-                ? 'bg-[#25211c] border-amber-500/60 text-white'
-                : 'bg-[#151412] border-[#2c2822] text-stone-400 hover:border-[#443e35]'
-            }`}
-          >
-            <div>
-              <div className="text-xs font-semibold text-stone-200">Gợi ý nghĩa tiếng Việt</div>
-              <div className="text-[11px] text-stone-400">
-                {configuredSettings.showHints ? 'Đang bật hiển thị' : 'Đang tắt'}
-              </div>
-            </div>
-            <span
-              className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${
-                configuredSettings.showHints ? 'bg-amber-500 text-black' : 'bg-[#25221d] text-stone-500'
-              }`}
-            >
-              {configuredSettings.showHints ? 'BẬT' : 'TẮT'}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setConfiguredSettings(prev => ({ ...prev, enableBossFight: !prev.enableBossFight }))}
-            className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-              configuredSettings.enableBossFight
-                ? 'bg-[#25211c] border-amber-500/60 text-white'
-                : 'bg-[#151412] border-[#2c2822] text-stone-400 hover:border-[#443e35]'
-            }`}
-          >
-            <div>
-              <div className="text-xs font-semibold text-stone-200">Thử thách Boss ghép câu</div>
-              <div className="text-[11px] text-stone-400">
-                {configuredSettings.enableBossFight ? 'Xuất hiện sau mỗi 6 từ' : 'Đang tắt'}
-              </div>
-            </div>
-            <span
-              className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${
-                configuredSettings.enableBossFight ? 'bg-amber-500 text-black' : 'bg-[#25221d] text-stone-500'
-              }`}
-            >
-              {configuredSettings.enableBossFight ? 'BẬT' : 'TẮT'}
-            </span>
-          </button>
-        </div>
-
         {/* NÚT HÀNH ĐỘNG BẮT ĐẦU */}
         <div className="flex flex-col sm:flex-row gap-2.5 mt-auto pt-2">
           <button
@@ -872,12 +933,18 @@ export const App: React.FC = () => {
           >
             <Play className="w-4 h-4 fill-stone-950" />
             <span>
-              {configuredSettings.gameMode === 'practice' ? 'BẮT ĐẦU HỌC (ZEN)' : 'BẮT ĐẦU CHIẾN (ARCADE)'}:{' '}
+              {configuredSettings.gameMode === 'practice'
+                ? 'BẮT ĐẦU HỌC (ZEN)'
+                : configuredSettings.gameMode === 'time_attack'
+                ? 'BẮT ĐẦU ĐUA GIỜ (60S)'
+                : configuredSettings.gameMode === 'boss_rush'
+                ? 'BẮT ĐẦU ĐẤU TRÙM'
+                : 'BẮT ĐẦU CHIẾN (ARCADE)'}:{' '}
               {configuredSettings.selectedHsk}
-              {configuredSettings.selectedLessonNumber && configuredSettings.selectedLessonNumber !== 'all'
-                ? ` • ${configuredSettings.selectedLessonNumber}`
+              {configuredSettings.selectedLessonNumbers && configuredSettings.selectedLessonNumbers.length > 0
+                ? ` • ${configuredSettings.selectedLessonNumbers.length} bài đã chọn`
                 : ''}
-              {configuredSettings.selectedTopic && configuredSettings.selectedTopic !== 'all' && (!configuredSettings.selectedLessonNumber || configuredSettings.selectedLessonNumber === 'all')
+              {configuredSettings.selectedTopic && configuredSettings.selectedTopic !== 'all' && (!configuredSettings.selectedLessonNumbers || configuredSettings.selectedLessonNumbers.length === 0)
                 ? ` • ${configuredSettings.selectedTopic}`
                 : ''}
               {' '}({activePoolCount} từ)

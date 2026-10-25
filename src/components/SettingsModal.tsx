@@ -15,6 +15,8 @@ import {
   RefreshCw,
   Coffee,
   Zap,
+  Timer,
+  Swords,
   BookOpen
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -462,10 +464,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Tab 1: Game Settings */}
         {activeTab === 'game' && (
           <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1 text-xs">
-            {/* Game Mode: Zen vs Arcade */}
+            {/* Game Mode: 4 Modes */}
             <div>
               <span className="text-stone-300 font-medium block mb-1.5">
-                Phong cách trải nghiệm (Áp lực & Nhịp độ):
+                Phong cách trải nghiệm & Thử thách:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
@@ -480,7 +482,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="flex items-center gap-2">
                     <Coffee className="w-4 h-4 text-emerald-400" />
                     <div>
-                      <div className="text-xs font-semibold text-white">☕ Thư Giãn (Zen)</div>
+                      <div className="text-xs font-semibold text-white">☕ Zen Thư Giãn</div>
                       <div className="text-[10px] text-stone-400">Không Game Over, không trừ máu</div>
                     </div>
                   </div>
@@ -503,12 +505,58 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-amber-400" />
                     <div>
-                      <div className="text-xs font-semibold text-white">🚀 Chiến Binh (Arcade)</div>
+                      <div className="text-xs font-semibold text-white">🚀 Arcade Chiến Binh</div>
                       <div className="text-[10px] text-stone-400">Thanh Máu, Boss, Fever x2</div>
                     </div>
                   </div>
                   {settings.gameMode === 'arcade' && (
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-black font-bold">
+                      BẬT
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ gameMode: 'time_attack' })}
+                  className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer flex items-center justify-between ${
+                    settings.gameMode === 'time_attack'
+                      ? 'bg-cyan-500/15 border-cyan-500 text-cyan-300 font-bold ring-1 ring-cyan-500/30'
+                      : 'bg-[#151412] border-[#2c2822] text-stone-400 hover:border-[#443e35]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Timer className="w-4 h-4 text-cyan-400" />
+                    <div>
+                      <div className="text-xs font-semibold text-white">⏱️ Đua Thời Gian (60s)</div>
+                      <div className="text-[10px] text-stone-400">Đếm ngược, gõ đúng +2s, combo +5s</div>
+                    </div>
+                  </div>
+                  {settings.gameMode === 'time_attack' && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500 text-black font-bold">
+                      BẬT
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ gameMode: 'boss_rush' })}
+                  className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer flex items-center justify-between ${
+                    settings.gameMode === 'boss_rush'
+                      ? 'bg-rose-500/15 border-rose-500 text-rose-300 font-bold ring-1 ring-rose-500/30'
+                      : 'bg-[#151412] border-[#2c2822] text-stone-400 hover:border-[#443e35]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Swords className="w-4 h-4 text-rose-400" />
+                    <div>
+                      <div className="text-xs font-semibold text-white">🥊 Đại Chiến Trùm</div>
+                      <div className="text-[10px] text-stone-400">Liên hoàn câu giao tiếp hoàn chỉnh</div>
+                    </div>
+                  </div>
+                  {settings.gameMode === 'boss_rush' && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500 text-black font-bold">
                       BẬT
                     </span>
                   )}
@@ -582,6 +630,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   { id: 'meaning_to_pinyin', name: 'Nhớ nghĩa tiếng Việt ➔ Gõ Pinyin', desc: 'Phản xạ giao tiếp & mở Hán tự' },
                   { id: 'listening_to_pinyin', name: 'Nghe bắt âm ➔ Gõ Pinyin', desc: 'Luyện nghe & bắt vần' },
                   { id: 'cloze_practice', name: 'Luyện điền khuyết Pinyin', desc: 'Ôn tập từ mới' },
+                  { id: 'random_mix', name: 'Thử Thách Hỗn Hợp (Mix)', desc: 'Mỗi từ rơi ngẫu nhiên đổi kiểu hiển thị' },
                 ].map(mode => (
                   <button
                     key={mode.id}

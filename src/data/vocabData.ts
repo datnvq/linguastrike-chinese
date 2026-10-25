@@ -72,8 +72,8 @@ export const CHINESE_XIEHANZI_DATA: WordItem[] = [
 // Mặc định sử dụng Giáo trình Chuẩn XieHanzi (hỗ trợ phân bài học 146 bài)
 export const CHINESE_HSK_DATA: WordItem[] = CHINESE_XIEHANZI_DATA;
 
-export function getChineseVocabByCurriculum(curriculum: 'xiehanzi' | 'hsk30' = 'xiehanzi'): WordItem[] {
-  return curriculum === 'hsk30' ? CHINESE_HSK30_DATA : CHINESE_XIEHANZI_DATA;
+export function getChineseVocabByCurriculum(curriculum: 'hsk2' | 'hsk3' = 'hsk2'): WordItem[] {
+  return curriculum === 'hsk3' ? CHINESE_HSK30_DATA : CHINESE_XIEHANZI_DATA;
 }
 
 export const VOCABULARY_DATA: Record<Language, WordItem[]> = {

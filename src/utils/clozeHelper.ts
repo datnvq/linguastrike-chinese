@@ -81,6 +81,13 @@ export function createActiveWord(
   requireTones: boolean = false,
   playMode: GamePlayMode = 'hanzi_to_pinyin'
 ): ActiveWord {
+  // If random_mix, pick one mode dynamically per word!
+  let activePlayMode = playMode;
+  if (playMode === 'random_mix') {
+    const modes: GamePlayMode[] = ['hanzi_to_pinyin', 'meaning_to_pinyin', 'listening_to_pinyin'];
+    activePlayMode = modes[Math.floor(Math.random() * modes.length)];
+  }
+
   // Use spaced pinyin (e.g. "nǐ hǎo") for visual rendering
   const spacedStr = wordItem.pinyinSpaced;
   const chars = spacedStr.split('');
@@ -96,13 +103,13 @@ export function createActiveWord(
   const hiddenIndices: number[] = [];
   const vowelRegex = /[aeiouüāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ]/i;
 
-  if (playMode === 'hanzi_to_pinyin' || playMode === 'meaning_to_pinyin' || playMode === 'listening_to_pinyin') {
-    // 3 chế độ chuyên sâu: ban đầu ẩn toàn bộ pinyin slot (_ _   _ _ _), gõ đến đâu bung sáng chữ đó!
+  if (activePlayMode === 'hanzi_to_pinyin' || activePlayMode === 'meaning_to_pinyin' || activePlayMode === 'listening_to_pinyin') {
+    // Ban đầu ẩn toàn bộ pinyin slot (_ _   _ _ _), gõ đến đâu bung sáng chữ đó!
     chars.forEach((c, i) => {
       if (c !== ' ') hiddenIndices.push(i);
     });
   } else {
-    // Chế độ 4: cloze_practice (dựa theo clozeStyle)
+    // Chế độ cloze_practice (dựa theo clozeStyle)
     if (clozeStyle === 'reveal_on_type') {
       chars.forEach((c, i) => {
         if (c !== ' ') hiddenIndices.push(i);
@@ -196,6 +203,7 @@ export function createActiveWord(
     targetLetters,
     typedCount: 0,
     syllables,
+    activePlayMode,
     isRevealingHanzi: false,
     revealStartTime: 0,
     isTargeted: false,

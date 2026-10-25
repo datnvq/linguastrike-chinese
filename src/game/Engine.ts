@@ -994,8 +994,8 @@ export class GameEngine {
     ctx.font = '12px system-ui';
     ctx.fillText('🔊', x + width - 24, y + 16);
 
-    // 4 CHẾ ĐỘ HỌC TẬP CHUYÊN SÂU
-    const playMode = this.settings.playMode || 'hanzi_to_pinyin';
+    // 5 CHẾ ĐỘ HỌC TẬP (Hỗ trợ random_mix linh hoạt cho từng từ)
+    const playMode = word.activePlayMode || this.settings.playMode || 'hanzi_to_pinyin';
 
     if (playMode === 'hanzi_to_pinyin') {
       // 1. NHÌN CHỮ HÁN ➔ GÕ PINYIN (Nhận diện mặt chữ)

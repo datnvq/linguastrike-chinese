@@ -77,6 +77,8 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
   const [isVocabLibraryOpen, setIsVocabLibraryOpen] = useState<boolean>(false);
   const [isScreenShaking, setIsScreenShaking] = useState<boolean>(false);
   const [currentTarget, setCurrentTarget] = useState<ActiveWord | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(() => settings.timeLimitSeconds || 60);
+  const [timeBonusText, setTimeBonusText] = useState<string | null>(null);
   const keystrokesHistoryRef = useRef<number[]>([]);
 
   // Stats State
@@ -126,11 +128,11 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
       baseList = [...customVocabRef.current];
     } else if (source === 'both') {
       // Học kết hợp cả từ tự nạp và từ hệ thống
-      const sysList = settings.curriculum === 'hsk30' ? CHINESE_HSK30_DATA : CHINESE_XIEHANZI_DATA;
+      const sysList = settings.curriculum === 'hsk3' ? CHINESE_HSK30_DATA : CHINESE_XIEHANZI_DATA;
       baseList = [...sysList, ...customVocabRef.current];
     } else {
       // Dữ liệu gốc HSK hệ thống (mặc định Giáo trình Chuẩn XieHanzi 146 bài)
-      baseList = settings.curriculum === 'hsk30' ? [...CHINESE_HSK30_DATA] : [...CHINESE_XIEHANZI_DATA];
+      baseList = settings.curriculum === 'hsk3' ? [...CHINESE_HSK30_DATA] : [...CHINESE_XIEHANZI_DATA];
     }
 
     // Lọc theo cấp độ đã chọn (HSK 1 - 6, Đời sống, hoặc Tất cả)
@@ -140,17 +142,29 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
       pool = baseList.filter(w => (w.hskLevel || 'Đời sống') === settings.selectedHsk);
     }
 
-    // Lọc tiếp theo Bài học cụ thể nếu được chọn
-    if (settings.selectedLessonNumber && settings.selectedLessonNumber !== 'all') {
-      const lessonFiltered = pool.filter(w => w.lessonNumber === settings.selectedLessonNumber);
+    // Lọc theo nhiều bài học được chọn cùng lúc (Multi-Lesson)
+    const selectedLessons = settings.selectedLessonNumbers && settings.selectedLessonNumbers.length > 0
+      ? settings.selectedLessonNumbers
+      : settings.selectedLessonNumber && settings.selectedLessonNumber !== 'all'
+      ? [settings.selectedLessonNumber]
+      : [];
+
+    if (selectedLessons.length > 0 && !selectedLessons.includes('all')) {
+      const lessonFiltered = pool.filter(w => w.lessonNumber && selectedLessons.includes(w.lessonNumber));
       if (lessonFiltered.length > 0) {
         pool = lessonFiltered;
       }
     }
 
-    // Lọc tiếp theo Chủ đề cụ thể nếu được chọn
-    if (settings.selectedTopic && settings.selectedTopic !== 'all') {
-      const topicFiltered = pool.filter(w => w.topic === settings.selectedTopic);
+    // Lọc theo nhiều chủ đề được chọn cùng lúc (Multi-Topic)
+    const selectedTopics = settings.selectedTopics && settings.selectedTopics.length > 0
+      ? settings.selectedTopics
+      : settings.selectedTopic && settings.selectedTopic !== 'all'
+      ? [settings.selectedTopic]
+      : [];
+
+    if (selectedTopics.length > 0 && !selectedTopics.includes('all')) {
+      const topicFiltered = pool.filter(w => w.topic && selectedTopics.includes(w.topic));
       if (topicFiltered.length > 0) {
         pool = topicFiltered;
       }
@@ -171,7 +185,15 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
       [deck[i], deck[j]] = [deck[j], deck[i]];
     }
     shuffledDeckRef.current = deck;
-  }, [settings.selectedHsk, settings.vocabSource, settings.curriculum, settings.selectedLessonNumber, settings.selectedTopic]);
+  }, [
+    settings.selectedHsk,
+    settings.vocabSource,
+    settings.curriculum,
+    settings.selectedLessonNumber,
+    settings.selectedLessonNumbers,
+    settings.selectedTopic,
+    settings.selectedTopics
+  ]);
 
   // Reset deck whenever HSK level, vocabSource or customWords changes
   useEffect(() => {
@@ -197,6 +219,18 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
         }
         return newHp;
       });
+    } else if (settings.gameMode === 'time_attack') {
+      // Time Attack: Rơi mất từ bị trừ 3 giây
+      setTimeLeft(t => {
+        const nextTime = Math.max(0, t - 3);
+        if (nextTime === 0) {
+          setIsGameOver(true);
+          engineRef.current?.stop();
+        }
+        return nextTime;
+      });
+      setTimeBonusText('-3s');
+      setTimeout(() => setTimeBonusText(null), 1000);
     }
 
     setStats(prev => ({
@@ -227,6 +261,14 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
       }
 
       const nextWordsDefeated = prev.wordsDefeated + 1;
+
+      // Time Attack Mode: Thưởng thêm thời gian sống còn!
+      if (settings.gameMode === 'time_attack') {
+        const bonus = nextCombo >= 5 ? 5 : 2;
+        setTimeLeft(t => Math.min(180, t + bonus));
+        setTimeBonusText(`+${bonus}s`);
+        setTimeout(() => setTimeBonusText(null), 1000);
+      }
 
       // Trigger Boss Fight every 6 defeated words if enabled!
       if (settings.enableBossFight && nextWordsDefeated > 0 && nextWordsDefeated % 6 === 0) {
@@ -273,7 +315,49 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
         highScore: newHighScore,
       };
     });
-  }, []);
+
+    // In Boss Rush: tiếp tục triệu hồi Boss tiếp theo!
+    if (settings.gameMode === 'boss_rush') {
+      setTimeout(() => {
+        if (engineRef.current && !isGameOver) {
+          const canvasWidth = canvasRef.current?.width || 800;
+          const boss = createBossEnemy(bossCounterRef.current++, canvasWidth);
+          engineRef.current.spawnBoss(boss);
+        }
+      }, 1200);
+    }
+  }, [settings.gameMode, isGameOver]);
+
+  // Time Attack Countdown Timer
+  useEffect(() => {
+    if (settings.gameMode !== 'time_attack' || isPaused || isGameOver) return;
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setIsGameOver(true);
+          engineRef.current?.stop();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [settings.gameMode, isPaused, isGameOver]);
+
+  // Boss Rush: Triệu hồi Boss đầu tiên ngay khi vào trận
+  useEffect(() => {
+    if (settings.gameMode === 'boss_rush') {
+      const timer = setTimeout(() => {
+        if (engineRef.current && !engineRef.current.currentBoss) {
+          const canvasWidth = canvasRef.current?.width || 800;
+          const boss = createBossEnemy(bossCounterRef.current++, canvasWidth);
+          engineRef.current.spawnBoss(boss);
+        }
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [settings.gameMode]);
 
   const handleComboChange = useCallback((combo: number) => {
     setStats(prev => ({ ...prev, combo }));
@@ -596,12 +680,13 @@ export const CanvasGame: React.FC<CanvasGameProps> = ({
       <GameHUD
         hp={hp}
         maxHp={MAX_HP}
-        stats={stats}
+        stats={{ ...stats, timeLeft, timeBonusText: timeBonusText || undefined }}
         currentLanguage={settings.language}
         gameMode={settings.gameMode}
         spawnMode={settings.spawnMode}
         vocabSource={settings.vocabSource}
         selectedHsk={settings.selectedHsk}
+        selectedLessonNumbers={settings.selectedLessonNumbers}
         selectedLessonNumber={settings.selectedLessonNumber}
         selectedTopic={settings.selectedTopic}
         isPaused={isPaused}
